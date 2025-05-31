@@ -24,7 +24,7 @@ import {
 import usePhase2Selectors from "../../hooks/usePhase2Selectors";
 import usePhase2Actions from "../../hooks/usePhase2Actions";
 import useGameStore from "../../stores/gameStore";
-import { CRISIS_TYPES, CHARACTER_STATS } from "../../constants/phase2";
+import { CHARACTER_STATS } from "../../constants/phase2";
 
 const CrisisContainer = styled(Box)(({ theme }) => ({
   minHeight: "100vh",
@@ -82,30 +82,6 @@ const DecisionButton = styled(Button)(({ choice, theme }) => ({
   },
 }));
 
-const getStatIcon = (stat) => {
-  const icons = {
-    [CHARACTER_STATS.TECHNICAL]: <TechIcon />,
-    [CHARACTER_STATS.STRENGTH]: <StrengthIcon />,
-    [CHARACTER_STATS.INTELLIGENCE]: <IntelIcon />,
-    [CHARACTER_STATS.HEALTH]: <HealthIcon />,
-    [CHARACTER_STATS.EMPATHY]: <EmpathyIcon />,
-    [CHARACTER_STATS.CHARISMA]: <CharismaIcon />,
-  };
-  return icons[stat] || <CrisisIcon />;
-};
-
-const getStatDisplayName = (stat) => {
-  const names = {
-    [CHARACTER_STATS.TECHNICAL]: "Техника",
-    [CHARACTER_STATS.STRENGTH]: "Сила",
-    [CHARACTER_STATS.INTELLIGENCE]: "Интеллект",
-    [CHARACTER_STATS.HEALTH]: "Здоровье",
-    [CHARACTER_STATS.EMPATHY]: "Эмпатия",
-    [CHARACTER_STATS.CHARISMA]: "Харизма",
-  };
-  return names[stat] || stat;
-};
-
 export default function CrisisView() {
   const { currentCrisis, teamStats } = usePhase2Selectors();
   const { resolveCrisis } = usePhase2Actions();
@@ -119,12 +95,7 @@ export default function CrisisView() {
     );
   }
 
-  const crisisType = CRISIS_TYPES[currentCrisis.type] || {
-    name: "Неизвестный кризис",
-    description: currentCrisis.description || "Произошла критическая ситуация",
-    importantStats: [],
-    onFailure: {},
-  };
+  const crisisType = currentCrisis.type;
 
   const handleResolution = (result) => {
     resolveCrisis(result);
@@ -208,12 +179,8 @@ export default function CrisisView() {
                     <Grid item xs={12} sm={6} md={4} key={stat}>
                       <StatCard advantage={advantage}>
                         <CardContent sx={{ textAlign: "center", py: 2 }}>
-                          <Box sx={{ fontSize: "2rem", mb: 1 }}>
-                            {getStatIcon(stat)}
-                          </Box>
-
                           <Typography variant="h6" gutterBottom>
-                            {getStatDisplayName(stat)}
+                            stat
                           </Typography>
 
                           <Stack

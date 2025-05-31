@@ -24,8 +24,7 @@ import {
 import usePhase2Selectors from "../../hooks/usePhase2Selectors";
 import usePhase2Actions from "../../hooks/usePhase2Actions";
 import useGameStore from "../../stores/gameStore";
-import { getActionById } from "../../constants/phase2";
-import { TEAMS } from "../../constants/phase2";
+import { PHASE2_UI } from "../../constants/phase2";
 
 const ProcessingContainer = styled(Box)(({ theme }) => ({
   minHeight: "100vh",
@@ -93,13 +92,13 @@ export default function ActionProcessingView() {
   };
 
   const teamColors = {
-    [TEAMS.BUNKER]: "#1976d2",
-    [TEAMS.OUTSIDE]: "#d32f2f",
+    [PHASE2_UI.TEAMS.BUNKER]: "#1976d2",
+    [PHASE2_UI.TEAMS.OUTSIDE]: "#d32f2f",
   };
 
   const teamNames = {
-    [TEAMS.BUNKER]: "Команда бункера",
-    [TEAMS.OUTSIDE]: "Команда снаружи",
+    [PHASE2_UI.TEAMS.BUNKER]: "Команда бункера",
+    [PHASE2_UI.TEAMS.OUTSIDE]: "Команда снаружи",
   };
 
   return (
@@ -156,7 +155,7 @@ export default function ActionProcessingView() {
                 <>
                   {Object.entries(actionQueue).map(
                     ([actionType, group], index) => {
-                      const action = getActionById(actionType);
+                      const action = actionType;
 
                       return (
                         <Card

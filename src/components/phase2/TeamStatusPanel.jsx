@@ -22,22 +22,21 @@ import {
   Schedule as WaitingIcon,
 } from "@mui/icons-material";
 import useGameStore from "../../stores/gameStore";
-import { TEAMS } from "../../constants/phase2";
-import { getActionById } from "../../constants/phase2";
+import { PHASE2_UI } from "../../constants/phase2";
 
 const TeamCard = styled(Card)(({ theme, team }) => {
   const colors = {
-    [TEAMS.BUNKER]: {
+    [PHASE2_UI.TEAMS.BUNKER]: {
       bg: "rgba(13, 71, 161, 0.1)",
       border: "rgba(13, 71, 161, 0.3)",
     },
-    [TEAMS.OUTSIDE]: {
+    [PHASE2_UI.TEAMS.OUTSIDE]: {
       bg: "rgba(183, 28, 28, 0.1)",
       border: "rgba(183, 28, 28, 0.3)",
     },
   };
 
-  const teamColors = colors[team] || colors[TEAMS.BUNKER];
+  const teamColors = colors[team] || colors[PHASE2_UI.TEAMS.BUNKER];
 
   return {
     background: teamColors.bg,
@@ -53,8 +52,8 @@ const ActionQueueCard = styled(Card)(({ theme }) => ({
 
 const PlayerAvatar = styled(Avatar)(({ online, team }) => {
   const colors = {
-    [TEAMS.BUNKER]: "#1976d2",
-    [TEAMS.OUTSIDE]: "#d32f2f",
+    [PHASE2_UI.TEAMS.BUNKER]: "#1976d2",
+    [PHASE2_UI.TEAMS.OUTSIDE]: "#d32f2f",
   };
 
   return {
@@ -87,14 +86,14 @@ export default function TeamStatusPanel({
   // Team configurations
   const teams = [
     {
-      type: TEAMS.BUNKER,
+      type: PHASE2_UI.TEAMS.BUNKER,
       name: "В бункере",
       icon: "🏠",
       members: bunkerMembers,
       color: "#1976d2",
     },
     {
-      type: TEAMS.OUTSIDE,
+      type: PHASE2_UI.TEAMS.OUTSIDE,
       name: "Снаружи",
       icon: "⚔️",
       members: outsideMembers,
@@ -247,7 +246,7 @@ export default function TeamStatusPanel({
               </Typography>
 
               {Object.entries(actionQueue).map(([actionType, group]) => {
-                const action = getActionById(actionType);
+                const action = actionType;
                 const actionName = action?.name || actionType;
 
                 return (

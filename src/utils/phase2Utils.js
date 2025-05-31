@@ -1,7 +1,6 @@
 import {
-    TEAMS,
     PHASE2_STATES,
-    VICTORY_CONDITIONS,
+    PHASE2_UI,
     calculatePlayerStats,
     getActionBonus
 } from '../constants/phase2.js';
@@ -10,6 +9,7 @@ import {
  * Determines current phase 2 state based on game data
  */
 export const getPhase2State = (game, playerId) => {
+    console.log('getPhase2State', game.phase2, playerId);
     if (!game?.phase2) return null;
 
     const p2 = game.phase2;
@@ -46,16 +46,32 @@ export const getPhase2State = (game, playerId) => {
 /**
  * Gets the team of a player
  */
-export const getPlayerTeam = (game, playerId) => {
-    if (!game?.phase2) return null;
+export const getPlayerTeam = (phase2, playerId) => {
+    const bunkerTeam = phase2.team_in_bunker || [];
+    const outsideTeam = phase2.team_outside || [];
 
-    const teamInBunker = game.phase2.team_in_bunker || game.team_in_bunker || [];
-    const teamOutside = game.phase2.team_outside || game.team_outside || [];
-
-    if (teamInBunker.includes(playerId)) return TEAMS.BUNKER;
-    if (teamOutside.includes(playerId)) return TEAMS.OUTSIDE;
-
+    if (bunkerTeam.includes(playerId)) return 'bunker';
+    if (outsideTeam.includes(playerId)) return 'outside';
     return null;
+};
+
+export const formatStatName = (stat) => {
+    const names = {
+        'ТЕХ': 'Техника',
+        'СИЛ': 'Сила',
+        'ИНТ': 'Интеллект',
+        'ЗДР': 'Здоровье',
+        'ЭМП': 'Эмпатия',
+        'ХАР': 'Харизма'
+    };
+    return names[stat] || stat;
+};
+
+export const getResourceStatus = (value, max) => {
+    const percent = (value / max) * 100;
+    if (percent <= 20) return 'critical';
+    if (percent <= 50) return 'warning';
+    return 'good';
 };
 
 /**
@@ -67,7 +83,7 @@ export const getTeamMembers = (game, team) => {
     const teamInBunker = game.phase2.team_in_bunker || game.team_in_bunker || [];
     const teamOutside = game.phase2.team_outside || game.team_outside || [];
 
-    return team === TEAMS.BUNKER ? teamInBunker : teamOutside;
+    return team === PHASE2_UI.TEAMS.BUNKER ? teamInBunker : teamOutside;
 };
 
 /**
@@ -134,30 +150,6 @@ export const getStatDisplayName = (stat) => {
     return displayNames[stat] || stat;
 };
 
-/**
- * Checks victory conditions
- */
-export const checkVictoryCondition = (game) => {
-    if (!game?.phase2) return null;
-
-    const p2 = game.phase2;
-
-    if (p2.bunker_hp <= 0) {
-        return {
-            winner: TEAMS.OUTSIDE,
-            condition: VICTORY_CONDITIONS.BUNKER_DESTROYED
-        };
-    }
-
-    if (p2.round >= VICTORY_CONDITIONS.MAX_ROUNDS) {
-        return {
-            winner: TEAMS.BUNKER,
-            condition: VICTORY_CONDITIONS.BUNKER_SURVIVED
-        };
-    }
-
-    return null;
-};
 
 /**
  * Gets current action queue grouped by action type

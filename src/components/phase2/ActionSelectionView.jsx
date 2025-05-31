@@ -15,8 +15,10 @@ import ActionCard from "./ActionCard";
 import TeamStatusPanel from "./TeamStatusPanel";
 import usePhase2Selectors from "../../hooks/usePhase2Selectors";
 import usePhase2Actions from "../../hooks/usePhase2Actions";
-import { TEAMS } from "../../constants/phase2";
-
+import { PHASE2_UI } from "../../constants/phase2";
+import ResourceTracker from "./ResourceTracker";
+import BunkerObjects from "./BunkerObjects";
+import useGameStore from "../../stores/gameStore";
 const ActionContainer = styled(Box)(({ theme }) => ({
   minHeight: "100vh",
   background: `
@@ -29,11 +31,13 @@ const ActionContainer = styled(Box)(({ theme }) => ({
 
 const TeamHeader = styled(Card)(({ theme, team }) => ({
   background:
-    team === TEAMS.BUNKER
+    team === PHASE2_UI.TEAMS.BUNKER
       ? "linear-gradient(135deg, rgba(13, 71, 161, 0.2) 0%, rgba(25, 118, 210, 0.1) 100%)"
       : "linear-gradient(135deg, rgba(183, 28, 28, 0.2) 0%, rgba(229, 57, 53, 0.1) 100%)",
   border: `2px solid ${
-    team === TEAMS.BUNKER ? "rgba(13, 71, 161, 0.4)" : "rgba(183, 28, 28, 0.4)"
+    team === PHASE2_UI.TEAMS.BUNKER
+      ? "rgba(13, 71, 161, 0.4)"
+      : "rgba(183, 28, 28, 0.4)"
   }`,
   marginBottom: theme.spacing(3),
 }));
@@ -71,6 +75,7 @@ export default function ActionSelectionView() {
   const {
     isPhase2,
     myTeam,
+    bunkerObjects,
     availableActions,
     canMakeAction,
     isMyTurn,
@@ -85,7 +90,7 @@ export default function ActionSelectionView() {
   } = usePhase2Selectors();
 
   const { makeAction, isConnected } = usePhase2Actions();
-
+  const { game } = useGameStore();
   const handleActionSelect = (actionId) => {
     if (!canMakeAction) return;
     makeAction(actionId);
@@ -93,13 +98,13 @@ export default function ActionSelectionView() {
 
   // Team colors and names
   const teamConfig = {
-    [TEAMS.BUNKER]: {
+    [PHASE2_UI.TEAMS.BUNKER]: {
       name: "КОМАНДА БУНКЕРА",
       color: "#1976d2",
       icon: "🏠",
       description: "Защищайте бункер и выживите 10 раундов",
     },
-    [TEAMS.OUTSIDE]: {
+    [PHASE2_UI.TEAMS.OUTSIDE]: {
       name: "КОМАНДА СНАРУЖИ",
       color: "#d32f2f",
       icon: "⚔️",
@@ -172,7 +177,8 @@ export default function ActionSelectionView() {
           </Box>
         </CardContent>
       </TeamHeader>
-
+      {/* <ResourceTracker phase2={game?.phase2} /> */}
+      <BunkerObjects bunkerObjects={bunkerObjects} />
       <Grid container spacing={3}>
         {/* Actions Selection */}
         <Grid item xs={12} lg={8}>

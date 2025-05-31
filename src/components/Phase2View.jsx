@@ -6,7 +6,7 @@ import CrisisView from "./phase2/CrisisView";
 import TurnCompleteView from "./phase2/TurnCompleteView";
 import FinishedView from "./FinishedView";
 import usePhase2Selectors from "../hooks/usePhase2Selectors";
-import { PHASE2_STATES } from "../constants/phase2";
+import { PHASE2_UI } from "../constants/phase2";
 
 /**
  * Main Phase 2 coordinator component
@@ -18,6 +18,7 @@ export default function Phase2View() {
   if (!isPhase2) {
     return (
       <Box textAlign="center" mt={4}>
+        <Typography variant="h6">Неизвестное состояние: {isPhase2}</Typography>
         <Typography variant="h6">Загрузка Phase 2...</Typography>
       </Box>
     );
@@ -29,17 +30,17 @@ export default function Phase2View() {
 
   // Route to appropriate component based on current state
   switch (currentState) {
-    case PHASE2_STATES.PLAYER_ACTION:
-    case PHASE2_STATES.WAITING_FOR_TEAM:
+    case PHASE2_UI.STATES.PLAYER_ACTION:
+    case PHASE2_UI.STATES.WAITING_FOR_TEAM:
       return <ActionSelectionView />;
 
-    case PHASE2_STATES.PROCESSING_ACTIONS:
+    case PHASE2_UI.STATES.PROCESSING_ACTIONS:
       return <ActionProcessingView />;
 
-    case PHASE2_STATES.CRISIS_RESOLUTION:
+    case PHASE2_UI.STATES.CRISIS_RESOLUTION:
       return <CrisisView />;
 
-    case PHASE2_STATES.TURN_COMPLETE:
+    case PHASE2_UI.STATES.TURN_COMPLETE:
       return <TurnCompleteView />;
 
     default:
@@ -49,7 +50,7 @@ export default function Phase2View() {
             Неизвестное состояние: {currentState}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Доступные состояния: {Object.values(PHASE2_STATES).join(", ")}
+            Доступные состояния: {Object.values(PHASE2_UI.STATES).join(", ")}
           </Typography>
         </Box>
       );

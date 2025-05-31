@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import useSocket from './useSocket';
 import useGameStore from '../stores/gameStore';
-import { PHASE2_API_ACTIONS } from '../constants/phase2';
+import { PHASE2_UI } from '../constants/phase2';
 
 /**
  * Phase 2 specific actions hook
@@ -44,24 +44,24 @@ export default function usePhase2Actions() {
 
     // Specific action methods
     const makeAction = useCallback((actionId, params = {}) => {
-        sendPhase2Action(PHASE2_API_ACTIONS.MAKE_ACTION, {
+        sendPhase2Action(PHASE2_UI.API_ACTIONS.MAKE_ACTION, {
             action_id: actionId,
             params
         });
     }, [sendPhase2Action]);
 
     const processAction = useCallback(() => {
-        sendPhase2Action(PHASE2_API_ACTIONS.PROCESS_ACTION);
+        sendPhase2Action(PHASE2_UI.API_ACTIONS.PROCESS_ACTION);
     }, [sendPhase2Action]);
 
     const resolveCrisis = useCallback((result) => {
-        sendPhase2Action(PHASE2_API_ACTIONS.RESOLVE_CRISIS, {
+        sendPhase2Action(PHASE2_UI.API_ACTIONS.RESOLVE_CRISIS, {
             result // 'bunker_win' or 'bunker_lose'
         });
     }, [sendPhase2Action]);
 
     const finishTeamTurn = useCallback(() => {
-        sendPhase2Action(PHASE2_API_ACTIONS.FINISH_TEAM_TURN);
+        sendPhase2Action(PHASE2_UI.API_ACTIONS.FINISH_TEAM_TURN);
     }, [sendPhase2Action]);
 
     return {

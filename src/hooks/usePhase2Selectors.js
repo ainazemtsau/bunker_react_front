@@ -1,119 +1,53 @@
-import { useMemo } from "react";
 import useGameStore from "../stores/gameStore";
-import {
-    getPhase2State,
-    getPlayerTeam,
-    canPlayerMakeAction,
-    getTeamStats,
-    getGroupedActionQueue,
-    checkVictoryCondition
-} from "../utils/phase2Utils";
-import { TEAMS, getActionsForTeam } from "../constants/phase2";
-
-/**
- * Enhanced Phase 2 selectors with full game state management
- */
+import { useMemo } from "react";
+import { getPhase2State, getPlayerTeam } from "../utils/phase2Utils";
 export default function usePhase2Selectors() {
     const game = useGameStore((s) => s.game);
     const playerId = useGameStore((s) => s.playerId);
 
     return useMemo(() => {
-        if (!game || game.phase !== "phase2" || !game.phase2) {
-            return {
-                // Basic state
-                isPhase2: false,
-                currentState: null,
-                isMyTurn: false,
-                myTeam: null,
-                canMakeAction: false,
 
-                // Game info
-                bunkerHp: 0,
-                maxHp: 10,
-                round: 0,
-                maxRounds: 10,
-                currentTeam: null,
-
-                // Teams and actions
-                availableActions: [],
-                actionQueue: {},
-                teamStats: { bunker: null, outside: null },
-
-                // Crisis and victory
-                currentCrisis: null,
-                victoryCondition: null,
-
-                // Team members
-                bunkerMembers: [],
-                outsideMembers: [],
-
-                // Processed selectors
-                isWaitingForTeam: false,
-                canProcessActions: false,
-                isTeamTurnComplete: false,
-                isCrisisActive: false,
-                isGameFinished: false
-            };
-        }
+        if (!game?.phase2) return { isPhase2: false };
 
         const p2 = game.phase2;
-        const currentState = getPhase2State(game, playerId);
-        const myTeam = getPlayerTeam(game, playerId);
-        const canMakeAction = canPlayerMakeAction(game, playerId);
-
-        // Team members
-        const bunkerMembers = p2.team_in_bunker || game.team_in_bunker || [];
-        const outsideMembers = p2.team_outside || game.team_outside || [];
-
-        // Available actions for player's team
-        const availableActions = myTeam ? getActionsForTeam(myTeam) : [];
-
-        // Action queue grouped by type
-        const actionQueue = getGroupedActionQueue(game);
-
-        // Team stats
-        const teamStats = {
-            bunker: getTeamStats(game, TEAMS.BUNKER),
-            outside: getTeamStats(game, TEAMS.OUTSIDE)
-        };
-
-        // Victory condition check
-        const victoryCondition = checkVictoryCondition(game);
-
+        console.log("[PHASE2 SELECTORS] usePhase2Selectors return state", getPhase2State(game), playerId);
         return {
-            // Basic state
+            // ✅ Простое извлечение данных с бэка
             isPhase2: true,
-            currentState,
-            isMyTurn: p2.current_player === playerId,
-            myTeam,
-            canMakeAction,
+            currentState: getPhase2State(game),
+            myTeam: getPlayerTeam(game, playerId),
 
-            // Game info
-            bunkerHp: p2.bunker_hp || 0,
-            maxHp: 10, // Could be configurable later
-            round: p2.round || 1,
-            maxRounds: 10,
-            currentTeam: p2.current_team || p2.team,
-
-            // Teams and actions
-            availableActions,
-            actionQueue,
-            teamStats,
-
-            // Crisis and victory
+            // ✅ Прямые данные с бэкенда
+            bunkerHp: p2.bunker_hp,
+            morale: p2.morale,
+            supplies: p2.supplies,
+            moraleCountdown: p2.morale_countdown,
+            suppliesCountdown: p2.supplies_countdown,
+            round: p2.round,
+            currentTeam: p2.current_team,
+            currentPlayer: p2.current_player,
+            bunkerMembers: game.team_in_bunker || [],
+            outsideMembers: game.team_outside || [],
+            // ✅ Готовые данные с бэка
+            availableActions: p2.available_actions || [],
+            actionQueue: p2.action_queue || [],
+            teamStats: p2.team_stats || {},
+            bunkerObjects: p2.bunker_objects || {},
+            teamDebuffs: p2.team_debuffs || {},
+            activePhobias: p2.active_phobias || {},
+            activeStatuses: p2.active_statuses || [],
             currentCrisis: p2.current_crisis,
-            victoryCondition,
+            winner: p2.winner,
 
-            // Team members
-            bunkerMembers,
-            outsideMembers,
-
-            // Processed selectors for UI logic
-            isWaitingForTeam: currentState === 'waiting_for_team',
-            canProcessActions: p2.can_process_actions || false,
-            isTeamTurnComplete: p2.team_turn_complete || false,
+            // ✅ UI флаги
+            canMakeAction: p2.current_player === playerId,
+            canProcessActions: p2.can_process_actions,
+            isTeamTurnComplete: p2.team_turn_complete,
             isCrisisActive: !!p2.current_crisis,
-            isGameFinished: !!p2.winner || !!victoryCondition
+            isBunkerCritical: (p2.bunker_hp ?? 7) <= 2,
+            isMoraleCritical: (p2.morale ?? 10) <= 3 || (p2.morale_countdown ?? 0) > 0,
+            isSuppliesCritical: (p2.supplies ?? 8) <= 2 || (p2.supplies_countdown ?? 0) > 0,
         };
+
     }, [game, playerId]);
 }

@@ -23,8 +23,9 @@ import {
 import usePhase2Selectors from "../../hooks/usePhase2Selectors";
 import usePhase2Actions from "../../hooks/usePhase2Actions";
 import useGameStore from "../../stores/gameStore";
-import { TEAMS, VICTORY_CONDITIONS } from "../../constants/phase2";
-
+import { PHASE2_UI } from "../../constants/phase2";
+import { CheckCircle } from "@mui/icons-material";
+import { Cancel } from "@mui/icons-material";
 const CompleteContainer = styled(Box)(({ theme }) => ({
   minHeight: "100vh",
   background: `
@@ -44,17 +45,17 @@ const SummaryCard = styled(Card)(({ theme }) => ({
 
 const ProgressCard = styled(Card)(({ theme, team }) => {
   const colors = {
-    [TEAMS.BUNKER]: {
+    [PHASE2_UI.TEAMS.BUNKER]: {
       bg: "rgba(13, 71, 161, 0.2)",
       border: "rgba(13, 71, 161, 0.4)",
     },
-    [TEAMS.OUTSIDE]: {
+    [PHASE2_UI.TEAMS.OUTSIDE]: {
       bg: "rgba(183, 28, 28, 0.2)",
       border: "rgba(183, 28, 28, 0.4)",
     },
   };
 
-  const teamColors = colors[team] || colors[TEAMS.BUNKER];
+  const teamColors = colors[team] || colors[PHASE2_UI.TEAMS.BUNKER];
 
   return {
     background: `linear-gradient(135deg, ${teamColors.bg} 0%, ${teamColors.bg}80 100%)`,
@@ -109,17 +110,20 @@ export default function TurnCompleteView() {
     ) || [];
 
   const teamNames = {
-    [TEAMS.BUNKER]: "Команда бункера",
-    [TEAMS.OUTSIDE]: "Команда снаружи",
+    [PHASE2_UI.TEAMS.BUNKER]: "Команда бункера",
+    [PHASE2_UI.TEAMS.OUTSIDE]: "Команда снаружи",
   };
 
   const teamColors = {
-    [TEAMS.BUNKER]: "#1976d2",
-    [TEAMS.OUTSIDE]: "#d32f2f",
+    [PHASE2_UI.TEAMS.BUNKER]: "#1976d2",
+    [PHASE2_UI.TEAMS.OUTSIDE]: "#d32f2f",
   };
 
-  const nextTeam = currentTeam === TEAMS.BUNKER ? TEAMS.OUTSIDE : TEAMS.BUNKER;
-  const isRoundComplete = currentTeam === TEAMS.BUNKER; // Bunker goes second
+  const nextTeam =
+    currentTeam === PHASE2_UI.TEAMS.BUNKER
+      ? PHASE2_UI.TEAMS.OUTSIDE
+      : PHASE2_UI.TEAMS.BUNKER;
+  const isRoundComplete = currentTeam === PHASE2_UI.TEAMS.BUNKER; // Bunker goes second
 
   const hpPercent = (bunkerHp / maxHp) * 100;
 
@@ -269,7 +273,7 @@ export default function TurnCompleteView() {
         {/* Progress Panel */}
         <Grid item xs={12} lg={4}>
           {/* Bunker HP */}
-          <ProgressCard team={TEAMS.BUNKER} sx={{ mb: 3 }}>
+          <ProgressCard team={PHASE2_UI.TEAMS.BUNKER} sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom sx={{ color: "#1976d2" }}>
                 🏠 Состояние бункера
@@ -408,7 +412,7 @@ export default function TurnCompleteView() {
             🎉 Игра завершена!
           </Typography>
           <Typography>
-            {victoryCondition.winner === TEAMS.BUNKER
+            {victoryCondition.winner === PHASE2_UI.TEAMS.BUNKER
               ? "Команда бункера выжила и победила!"
               : "Команда снаружи уничтожила бункер и победила!"}
           </Typography>
