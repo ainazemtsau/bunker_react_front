@@ -19,13 +19,20 @@ import {
   Timeline as StatsIcon,
   TrendingDown as DamageIcon,
   TrendingUp as HealIcon,
+  CheckCircle,
+  Cancel,
 } from "@mui/icons-material";
 import usePhase2Selectors from "../../hooks/usePhase2Selectors";
 import usePhase2Actions from "../../hooks/usePhase2Actions";
 import useGameStore from "../../stores/gameStore";
-import { PHASE2_UI } from "../../constants/phase2";
-import { CheckCircle } from "@mui/icons-material";
-import { Cancel } from "@mui/icons-material";
+import {
+  PHASE2_UI,
+  TEAM_COLORS,
+  TEAM_NAMES,
+  PHASE2_RESOURCES,
+} from "../../constants/phase2";
+import ResourceTracker from "./ResourceTracker";
+
 const CompleteContainer = styled(Box)(({ theme }) => ({
   minHeight: "100vh",
   background: `
@@ -89,6 +96,12 @@ export default function TurnCompleteView() {
     round,
     bunkerHp,
     maxHp,
+    morale,
+    maxMorale,
+    supplies,
+    maxSupplies,
+    moraleCountdown,
+    suppliesCountdown,
     isTeamTurnComplete,
     bunkerMembers,
     outsideMembers,
@@ -97,33 +110,31 @@ export default function TurnCompleteView() {
 
   const { finishTeamTurn } = usePhase2Actions();
   const role = useGameStore((s) => s.role);
-  const game = useGameStore((s) => s.game);
+  const { game } = useGameStore();
 
   const handleNextTurn = () => {
+    console.log("[TURN_COMPLETE] Finishing team turn");
     finishTeamTurn();
   };
 
-  // Get recent action results for this turn
-  const recentResults =
+  // Получаем результаты действий текущего хода из лога
+  const currentTurnResults =
     game?.phase2?.action_log?.filter(
       (entry) => entry.round === round && entry.team === currentTeam
     ) || [];
 
-  const teamNames = {
-    [PHASE2_UI.TEAMS.BUNKER]: "Команда бункера",
-    [PHASE2_UI.TEAMS.OUTSIDE]: "Команда снаружи",
-  };
-
-  const teamColors = {
-    [PHASE2_UI.TEAMS.BUNKER]: "#1976d2",
-    [PHASE2_UI.TEAMS.OUTSIDE]: "#d32f2f",
-  };
-
+  // Определяем следующую команду и проверяем завершение раунда
   const nextTeam =
-    currentTeam === PHASE2_UI.TEAMS.BUNKER
-      ? PHASE2_UI.TEAMS.OUTSIDE
-      : PHASE2_UI.TEAMS.BUNKER;
-  const isRoundComplete = currentTeam === PHASE2_UI.TEAMS.BUNKER; // Bunker goes second
+    currentTeam === PHASE2_UI.TEAMS.OUTSIDE
+      ? PHASE2_UI.TEAMS.BUNKER
+      : PHASE2_UI.TEAMS.OUTSIDE;
+
+  const isRoundComplete = currentTeam === PHASE2_UI.TEAMS.BUNKER; // Бункер ходит вторым
+
+  const getPlayerName = (playerId) => {
+    const player = game?.players?.find((p) => p.id === playerId);
+    return player?.name || playerId;
+  };
 
   const hpPercent = (bunkerHp / maxHp) * 100;
 
@@ -149,23 +160,41 @@ export default function TurnCompleteView() {
           </Typography>
 
           <Typography variant="h5" gutterBottom>
-            {teamNames[currentTeam]} завершили свои действия
+            {TEAM_NAMES[currentTeam]} завершили свои действия
           </Typography>
 
           <Stack direction="row" spacing={2} justifyContent="center" mt={2}>
-            <Chip label={`Раунд ${round}/10`} color="primary" size="large" />
             <Chip
-              label={teamNames[currentTeam]}
+              label={`Раунд ${round}/${PHASE2_RESOURCES.MAX_ROUNDS}`}
+              color="primary"
+              size="large"
+            />
+            <Chip
+              label={TEAM_NAMES[currentTeam]}
               sx={{
-                backgroundColor: `${teamColors[currentTeam]}20`,
-                color: teamColors[currentTeam],
-                border: `1px solid ${teamColors[currentTeam]}`,
+                backgroundColor: `${TEAM_COLORS[currentTeam]}20`,
+                color: TEAM_COLORS[currentTeam],
+                border: `1px solid ${TEAM_COLORS[currentTeam]}`,
               }}
               size="large"
             />
           </Stack>
         </CardContent>
       </SummaryCard>
+
+      {/* Resources Display */}
+      <ResourceTracker
+        bunkerHp={bunkerHp}
+        maxHp={maxHp}
+        morale={morale}
+        maxMorale={maxMorale}
+        supplies={supplies}
+        maxSupplies={maxSupplies}
+        moraleCountdown={moraleCountdown}
+        suppliesCountdown={suppliesCountdown}
+        round={round}
+        showTitle={false}
+      />
 
       <Grid container spacing={3}>
         {/* Turn Results */}
@@ -178,12 +207,12 @@ export default function TurnCompleteView() {
                 sx={{ display: "flex", alignItems: "center", gap: 1 }}
               >
                 <StatsIcon />
-                Результаты хода
+                Результаты хода команды {TEAM_NAMES[currentTeam]}
               </Typography>
 
-              {recentResults.length > 0 ? (
+              {currentTurnResults.length > 0 ? (
                 <Stack spacing={2}>
-                  {recentResults.map((result, index) => (
+                  {currentTurnResults.map((result, index) => (
                     <Card key={index} sx={{ bgcolor: "rgba(0,0,0,0.2)" }}>
                       <CardContent sx={{ py: 2 }}>
                         <Box
@@ -193,7 +222,7 @@ export default function TurnCompleteView() {
                           mb={1}
                         >
                           <Typography variant="h6" fontWeight="bold">
-                            {result.action_name || "Действие"}
+                            {result.action_name || result.action_type}
                           </Typography>
                           <Chip
                             label={result.success ? "УСПЕХ" : "НЕУДАЧА"}
@@ -208,30 +237,63 @@ export default function TurnCompleteView() {
                           mb={1}
                         >
                           Участники:{" "}
-                          {result.participants?.join(", ") || "Неизвестно"}
+                          {result.participants?.map(getPlayerName).join(", ") ||
+                            "Неизвестно"}
                         </Typography>
 
-                        <Box display="flex" gap={2} alignItems="center">
+                        <Box
+                          display="flex"
+                          gap={2}
+                          alignItems="center"
+                          flexWrap="wrap"
+                        >
                           <Typography variant="body2">
                             Бросок: <strong>{result.roll || "?"}</strong> +{" "}
                             {result.bonus || 0} ={" "}
                             {(result.roll || 0) + (result.bonus || 0)}
                           </Typography>
 
-                          {result.damage > 0 && (
-                            <Chip
-                              icon={<DamageIcon />}
-                              label={`-${result.damage} HP`}
-                              color="error"
-                              size="small"
-                            />
+                          {result.effects && (
+                            <Stack direction="row" spacing={1} flexWrap="wrap">
+                              {result.effects.bunker_damage && (
+                                <Chip
+                                  icon={<DamageIcon />}
+                                  label={`-${result.effects.bunker_damage} HP`}
+                                  color="error"
+                                  size="small"
+                                />
+                              )}
+                              {result.effects.bunker_heal && (
+                                <Chip
+                                  icon={<HealIcon />}
+                                  label={`+${result.effects.bunker_heal} HP`}
+                                  color="success"
+                                  size="small"
+                                />
+                              )}
+                              {result.effects.morale_damage && (
+                                <Chip
+                                  icon={<DamageIcon />}
+                                  label={`-${result.effects.morale_damage} Мораль`}
+                                  color="warning"
+                                  size="small"
+                                />
+                              )}
+                              {result.effects.morale_heal && (
+                                <Chip
+                                  icon={<HealIcon />}
+                                  label={`+${result.effects.morale_heal} Мораль`}
+                                  color="success"
+                                  size="small"
+                                />
+                              )}
+                            </Stack>
                           )}
 
-                          {result.heal > 0 && (
+                          {result.crisis_triggered && (
                             <Chip
-                              icon={<HealIcon />}
-                              label={`+${result.heal} HP`}
-                              color="success"
+                              label="Вызвал кризис"
+                              color="warning"
                               size="small"
                             />
                           )}
@@ -241,7 +303,10 @@ export default function TurnCompleteView() {
                   ))}
                 </Stack>
               ) : (
-                <Alert severity="info">Нет результатов для отображения</Alert>
+                <Alert severity="info">
+                  Нет результатов для отображения. Возможно, команда не
+                  выполняла действий.
+                </Alert>
               )}
             </CardContent>
           </Card>
@@ -253,7 +318,13 @@ export default function TurnCompleteView() {
                 <Typography variant="h6" gutterBottom>
                   {isRoundComplete
                     ? `Раунд ${round} завершен! Переходим к раунду ${round + 1}`
-                    : `Переход хода к команде: ${teamNames[nextTeam]}`}
+                    : `Переход хода к команде: ${TEAM_NAMES[nextTeam]}`}
+                </Typography>
+
+                <Typography variant="body2" color="text.secondary" mb={3}>
+                  {isRoundComplete
+                    ? "Обе команды завершили свои ходы в этом раунде"
+                    : "Команда завершила все свои действия"}
                 </Typography>
 
                 <Button
@@ -261,107 +332,49 @@ export default function TurnCompleteView() {
                   size="large"
                   onClick={handleNextTurn}
                   startIcon={<NextIcon />}
-                  sx={{ mt: 2 }}
+                  sx={{
+                    background:
+                      "linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)",
+                    "&:hover": {
+                      background:
+                        "linear-gradient(45deg, #1976D2 30%, #1CB5E0 90%)",
+                    },
+                  }}
                 >
-                  {isRoundComplete ? "Следующий раунд" : "Следующая команда"}
+                  {isRoundComplete ? "Начать следующий раунд" : "Передать ход"}
                 </Button>
               </CardContent>
             </Card>
           )}
         </Grid>
 
-        {/* Progress Panel */}
+        {/* Team Status Panel */}
         <Grid item xs={12} lg={4}>
-          {/* Bunker HP */}
-          <ProgressCard team={PHASE2_UI.TEAMS.BUNKER} sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ color: "#1976d2" }}>
-                🏠 Состояние бункера
-              </Typography>
-
-              <Box mb={2}>
-                <Box
-                  display="flex"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  mb={1}
-                >
-                  <Typography variant="body2">Прочность</Typography>
-                  <Typography variant="h6" fontWeight="bold">
-                    {bunkerHp}/{maxHp}
-                  </Typography>
-                </Box>
-                <HPBar variant="determinate" value={hpPercent} max={100} />
-              </Box>
-
-              <Typography variant="body2" color="text.secondary">
-                {bunkerHp <= 3
-                  ? "⚠️ Критическое состояние!"
-                  : bunkerHp <= 6
-                  ? "⚡ Требует ремонта"
-                  : "✅ Хорошее состояние"}
-              </Typography>
-            </CardContent>
-          </ProgressCard>
-
-          {/* Round Progress */}
+          {/* Team Composition */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                📅 Прогресс игры
+                👥 Состав команд
               </Typography>
 
-              <Box mb={2}>
-                <Box
-                  display="flex"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  mb={1}
+              <Box mb={3}>
+                <Typography
+                  variant="subtitle2"
+                  color={TEAM_COLORS.bunker}
+                  gutterBottom
                 >
-                  <Typography variant="body2">Раунды</Typography>
-                  <Typography variant="h6" fontWeight="bold">
-                    {round}/10
-                  </Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={(round / 10) * 100}
-                  sx={{ height: 10, borderRadius: 5 }}
-                />
-              </Box>
-
-              <Typography variant="body2" color="text.secondary">
-                {10 - round} раундов до победы бункера
-              </Typography>
-            </CardContent>
-          </Card>
-
-          {/* Team Status */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                👥 Команды
-              </Typography>
-
-              <Box mb={2}>
-                <Typography variant="subtitle2" color="#1976d2" gutterBottom>
                   🏠 В бункере ({bunkerMembers.length})
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" mb={2}>
-                  {bunkerMembers.slice(0, 4).map((playerId) => {
-                    const player = game?.players?.find(
-                      (p) => p.id === playerId
-                    );
-                    return (
-                      <Chip
-                        key={playerId}
-                        label={player?.name || playerId}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                      />
-                    );
-                  })}
+                  {bunkerMembers.slice(0, 4).map((playerId) => (
+                    <Chip
+                      key={playerId}
+                      label={getPlayerName(playerId)}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  ))}
                   {bunkerMembers.length > 4 && (
                     <Chip
                       label={`+${bunkerMembers.length - 4}`}
@@ -373,24 +386,23 @@ export default function TurnCompleteView() {
               </Box>
 
               <Box>
-                <Typography variant="subtitle2" color="#d32f2f" gutterBottom>
+                <Typography
+                  variant="subtitle2"
+                  color={TEAM_COLORS.outside}
+                  gutterBottom
+                >
                   ⚔️ Снаружи ({outsideMembers.length})
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {outsideMembers.slice(0, 4).map((playerId) => {
-                    const player = game?.players?.find(
-                      (p) => p.id === playerId
-                    );
-                    return (
-                      <Chip
-                        key={playerId}
-                        label={player?.name || playerId}
-                        size="small"
-                        color="error"
-                        variant="outlined"
-                      />
-                    );
-                  })}
+                  {outsideMembers.slice(0, 4).map((playerId) => (
+                    <Chip
+                      key={playerId}
+                      label={getPlayerName(playerId)}
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                    />
+                  ))}
                   {outsideMembers.length > 4 && (
                     <Chip
                       label={`+${outsideMembers.length - 4}`}
@@ -400,6 +412,80 @@ export default function TurnCompleteView() {
                   )}
                 </Stack>
               </Box>
+            </CardContent>
+          </Card>
+
+          {/* Round Progress */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                📅 Прогресс раундов
+              </Typography>
+
+              <Box mb={2}>
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  mb={1}
+                >
+                  <Typography variant="body2">Раунды</Typography>
+                  <Typography variant="h6" fontWeight="bold">
+                    {round}/{PHASE2_RESOURCES.MAX_ROUNDS}
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={(round / PHASE2_RESOURCES.MAX_ROUNDS) * 100}
+                  sx={{
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                    "& .MuiLinearProgress-bar": {
+                      backgroundColor: "#2196f3",
+                    },
+                  }}
+                />
+              </Box>
+
+              <Typography variant="body2" color="text.secondary">
+                {PHASE2_RESOURCES.MAX_ROUNDS - round} раунд
+                {PHASE2_RESOURCES.MAX_ROUNDS - round > 1
+                  ? PHASE2_RESOURCES.MAX_ROUNDS - round > 4
+                    ? "ов"
+                    : "а"
+                  : ""}{" "}
+                до автоматической победы бункера
+              </Typography>
+            </CardContent>
+          </Card>
+
+          {/* Next Phase Info */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                ⏭️ Следующий этап
+              </Typography>
+
+              {isRoundComplete ? (
+                <Alert severity="info">
+                  <Typography variant="subtitle2" gutterBottom>
+                    Новый раунд {round + 1}
+                  </Typography>
+                  <Typography variant="body2">
+                    Обе команды сделают новые ходы. Начинает команда снаружи.
+                  </Typography>
+                </Alert>
+              ) : (
+                <Alert severity="warning">
+                  <Typography variant="subtitle2" gutterBottom>
+                    Ход команды {TEAM_NAMES[nextTeam]}
+                  </Typography>
+                  <Typography variant="body2">
+                    Игроки {TEAM_NAMES[nextTeam]} будут выбирать свои действия.
+                  </Typography>
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -422,7 +508,7 @@ export default function TurnCompleteView() {
       {/* Instructions for non-hosts */}
       {role !== "host" && (
         <Alert severity="info" sx={{ mt: 3 }}>
-          Ожидание перехода к следующему ходу...
+          Ожидание перехода к следующему ходу от хоста...
         </Alert>
       )}
     </CompleteContainer>

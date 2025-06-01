@@ -1,60 +1,142 @@
-import {
-    PHASE2_STATES,
-    PHASE2_UI,
-    calculatePlayerStats,
-    getActionBonus
-} from '../constants/phase2.js';
+import { PHASE2_UI, CRISIS_TYPES } from '../constants/phase2.js';
 
 /**
- * Determines current phase 2 state based on game data
+ * Determines current phase 2 state based on game data according to documentation
  */
 export const getPhase2State = (game, playerId) => {
-    console.log('getPhase2State', game.phase2, playerId);
-    if (!game?.phase2) return null;
+    console.log('[PHASE2_UTILS] getPhase2State called with:', {
+        phase: game?.phase,
+        phase2: game?.phase2,
+        playerId
+    });
+
+    if (!game?.phase2) {
+        console.log('[PHASE2_UTILS] No phase2 data found');
+        return null;
+    }
 
     const p2 = game.phase2;
 
-    // Check if game is finished
-    if (p2.winner) {
-        return PHASE2_STATES.GAME_FINISHED;
+    // 1. Check if game is finished
+    if (p2.winner !== null && p2.winner !== undefined) {
+        console.log('[PHASE2_UTILS] Game finished, winner:', p2.winner);
+        return PHASE2_UI.STATES.GAME_FINISHED;
     }
 
-    // Check if there's an active crisis
-    if (p2.current_crisis) {
-        return PHASE2_STATES.CRISIS_RESOLUTION;
+    // 2. Check if there's an active crisis
+    if (p2.current_crisis !== null && p2.current_crisis !== undefined) {
+        console.log('[PHASE2_UTILS] Crisis active:', p2.current_crisis);
+        return PHASE2_UI.STATES.CRISIS_RESOLUTION;
     }
 
-    // Check if all actions can be processed
-    if (p2.can_process_actions) {
-        return PHASE2_STATES.PROCESSING_ACTIONS;
+    // 3. Check if actions can be processed
+    if (p2.can_process_actions === true) {
+        console.log('[PHASE2_UTILS] Can process actions');
+        return PHASE2_UI.STATES.PROCESSING_ACTIONS;
     }
 
-    // Check if team turn is complete
-    if (p2.team_turn_complete) {
-        return PHASE2_STATES.TURN_COMPLETE;
+    // 4. Check if team turn is complete
+    if (p2.team_turn_complete === true) {
+        console.log('[PHASE2_UTILS] Team turn complete');
+        return PHASE2_UI.STATES.TURN_COMPLETE;
     }
 
-    // Check if it's player's turn
+    // 5. Check if it's player's turn
     if (p2.current_player === playerId) {
-        return PHASE2_STATES.PLAYER_ACTION;
+        console.log('[PHASE2_UTILS] Player action required for:', playerId);
+        return PHASE2_UI.STATES.PLAYER_ACTION;
     }
 
-    // Otherwise waiting for team
-    return PHASE2_STATES.WAITING_FOR_TEAM;
+    // 6. Otherwise waiting for team
+    console.log('[PHASE2_UTILS] Waiting for team, current player:', p2.current_player);
+    return PHASE2_UI.STATES.WAITING_FOR_TEAM;
 };
 
 /**
- * Gets the team of a player
+ * Gets the team of a player according to documentation structure
  */
-export const getPlayerTeam = (phase2, playerId) => {
-    const bunkerTeam = phase2.team_in_bunker || [];
-    const outsideTeam = phase2.team_outside || [];
+export const getPlayerTeam = (game, playerId) => {
+    if (!game || !playerId) {
+        console.log('[PHASE2_UTILS] getPlayerTeam: missing game or playerId');
+        return null;
+    }
 
-    if (bunkerTeam.includes(playerId)) return 'bunker';
-    if (outsideTeam.includes(playerId)) return 'outside';
+    // According to documentation, teams are stored at game level, not phase2 level
+    const bunkerTeam = game.team_in_bunker || [];
+    const outsideTeam = game.team_outside || [];
+
+    console.log('[PHASE2_UTILS] getPlayerTeam:', {
+        playerId,
+        bunkerTeam,
+        outsideTeam
+    });
+
+    if (bunkerTeam.includes(playerId)) {
+        return PHASE2_UI.TEAMS.BUNKER;
+    }
+    if (outsideTeam.includes(playerId)) {
+        return PHASE2_UI.TEAMS.OUTSIDE;
+    }
+
+    console.log('[PHASE2_UTILS] Player not found in any team:', playerId);
     return null;
 };
 
+/**
+ * Gets team members for a specific team according to documentation
+ */
+export const getTeamMembers = (game, team) => {
+    if (!game) return [];
+
+    const bunkerTeam = game.team_in_bunker || [];
+    const outsideTeam = game.team_outside || [];
+
+    return team === PHASE2_UI.TEAMS.BUNKER ? bunkerTeam : outsideTeam;
+};
+
+/**
+ * Checks if player can make an action according to documentation
+ */
+export const canPlayerMakeAction = (game, playerId) => {
+    if (!game?.phase2) return false;
+
+    const state = getPhase2State(game, playerId);
+    return state === PHASE2_UI.STATES.PLAYER_ACTION &&
+        game.phase2.current_player === playerId;
+};
+
+/**
+ * Gets team stats from game data according to documentation
+ */
+export const getTeamStats = (game, team) => {
+    if (!game?.phase2?.team_stats) return null;
+    return game.phase2.team_stats[team] || null;
+};
+
+/**
+ * Gets current action queue grouped by action type according to documentation
+ */
+export const getGroupedActionQueue = (game) => {
+    if (!game?.phase2?.action_queue) return {};
+
+    const grouped = {};
+
+    game.phase2.action_queue.forEach(action => {
+        if (!grouped[action.action_type]) {
+            grouped[action.action_type] = {
+                action_type: action.action_type,
+                participants: []
+            };
+        }
+        grouped[action.action_type].participants.push(...action.participants);
+    });
+
+    return grouped;
+};
+
+/**
+ * Format stat name for display
+ */
 export const formatStatName = (stat) => {
     const names = {
         'ТЕХ': 'Техника',
@@ -67,6 +149,9 @@ export const formatStatName = (stat) => {
     return names[stat] || stat;
 };
 
+/**
+ * Get resource status (critical/warning/good)
+ */
 export const getResourceStatus = (value, max) => {
     const percent = (value / max) * 100;
     if (percent <= 20) return 'critical';
@@ -75,57 +160,17 @@ export const getResourceStatus = (value, max) => {
 };
 
 /**
- * Gets team members for a specific team
+ * Gets display name for character stat
  */
-export const getTeamMembers = (game, team) => {
-    if (!game?.phase2) return [];
-
-    const teamInBunker = game.phase2.team_in_bunker || game.team_in_bunker || [];
-    const teamOutside = game.phase2.team_outside || game.team_outside || [];
-
-    return team === PHASE2_UI.TEAMS.BUNKER ? teamInBunker : teamOutside;
-};
-
-/**
- * Checks if player can make an action
- */
-export const canPlayerMakeAction = (game, playerId) => {
-    const state = getPhase2State(game, playerId);
-    return state === PHASE2_STATES.PLAYER_ACTION &&
-        game.available_actions?.includes('make_action');
-};
-
-/**
- * Gets team stats from game data
- */
-export const getTeamStats = (game, team) => {
-    if (!game?.phase2?.team_stats) return null;
-    return game.phase2.team_stats[team];
-};
-
-/**
- * Calculate action success chance for a player
- */
-export const calculateActionSuccessChance = (action, game, playerId) => {
-    if (!game?.characters?.[playerId]) return 0;
-
-    const playerStats = calculatePlayerStats(game.characters[playerId]);
-    const bonus = getActionBonus(action, playerStats);
-    const targetNumber = action.difficulty;
-
-    // Success if d20 + bonus >= difficulty
-    // Probability = (21 - (difficulty - bonus)) / 20
-    // But capped between 5% and 95%
-    const successChance = Math.max(5, Math.min(95, (21 - (targetNumber - bonus)) * 5));
-
-    return successChance;
+export const getStatDisplayName = (stat) => {
+    return formatStatName(stat);
 };
 
 /**
  * Gets formatted team stats for display
  */
 export const getFormattedTeamStats = (teamStats) => {
-    if (!teamStats) return {};
+    if (!teamStats) return [];
 
     return Object.entries(teamStats).map(([stat, value]) => ({
         name: stat,
@@ -135,39 +180,36 @@ export const getFormattedTeamStats = (teamStats) => {
 };
 
 /**
- * Gets display name for character stat
+ * Calculate action success chance for a player (UI helper)
  */
-export const getStatDisplayName = (stat) => {
-    const displayNames = {
-        'ЗДР': 'Здоровье',
-        'СИЛ': 'Сила',
-        'ИНТ': 'Интеллект',
-        'ТЕХ': 'Техника',
-        'ЭМП': 'Эмпатия',
-        'ХАР': 'Харизма'
-    };
+export const calculateActionSuccessChance = (action, playerStats) => {
+    if (!action || !playerStats) return 0;
 
-    return displayNames[stat] || stat;
+    let bonus = 0;
+
+    if (action.stat_weights) {
+        Object.entries(action.stat_weights).forEach(([stat, weight]) => {
+            const statValue = playerStats[stat] || 0;
+            bonus += statValue * weight;
+        });
+    }
+
+    const targetNumber = action.difficulty || 10;
+
+    // Success if d20 + bonus >= difficulty
+    // Probability = (21 - (difficulty - bonus)) / 20
+    // But capped between 5% and 95%
+    const successChance = Math.max(5, Math.min(95, (21 - (targetNumber - bonus)) * 5));
+
+    return Math.round(successChance);
 };
 
+export const getCrisisType = (crisis) => {
+    if (!crisis) return null;
 
-/**
- * Gets current action queue grouped by action type
- */
-export const getGroupedActionQueue = (game) => {
-    if (!game?.phase2?.action_queue) return {};
+    if (crisis.id?.startsWith('action_minigame_')) {
+        return CRISIS_TYPES.ACTION_MINIGAME;
+    }
 
-    const grouped = {};
-
-    game.phase2.action_queue.forEach(action => {
-        if (!grouped[action.action_type]) {
-            grouped[action.action_type] = {
-                action: action,
-                participants: []
-            };
-        }
-        grouped[action.action_type].participants.push(...action.participants);
-    });
-
-    return grouped;
+    return CRISIS_TYPES.REGULAR;
 };

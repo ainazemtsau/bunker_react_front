@@ -1,34 +1,25 @@
-// ✅ Показываем готовые правила с бэка
-function CrisisView({ crisis, onResolve, isHost }) {
-  const { mini_game } = crisis;
+import React from "react";
+import MinigameFromActionView from "./MinigameFromActionView";
+import RegularCrisisView from "./RegularCrisisView";
+import usePhase2Selectors from "../../hooks/usePhase2Selectors";
 
-  return (
-    <Box>
-      <Typography variant="h3">🚨 {crisis.name}</Typography>
+export default function CrisisView() {
+  const { currentCrisis } = usePhase2Selectors();
 
-      <Typography variant="h6">{crisis.description}</Typography>
+  if (!currentCrisis) {
+    return (
+      <Box textAlign="center" mt={4}>
+        <Typography variant="h6">Нет активного кризиса</Typography>
+      </Box>
+    );
+  }
 
-      {mini_game && (
-        <Card sx={{ mt: 3 }}>
-          <CardContent>
-            <Typography variant="h5">🎮 {mini_game.name}</Typography>
-
-            {/* ✅ Готовые правила с бэка */}
-            <Typography variant="body1">{mini_game.rules}</Typography>
-
-            {isHost && (
-              <Box mt={3}>
-                <Button onClick={() => onResolve("bunker_win")}>
-                  🏠 Бункер победил
-                </Button>
-                <Button onClick={() => onResolve("bunker_lose")}>
-                  🌪️ Снаружи победили
-                </Button>
-              </Box>
-            )}
-          </CardContent>
-        </Card>
-      )}
-    </Box>
-  );
+  // ✅ НОВАЯ ЛОГИКА: Определяем тип кризиса по ID
+  if (currentCrisis.id?.startsWith("action_minigame_")) {
+    // Это мини-игра от провалившегося действия команды бункера
+    return <MinigameFromActionView crisis={currentCrisis} />;
+  } else {
+    // Это обычный кризис
+    return <RegularCrisisView crisis={currentCrisis} />;
+  }
 }

@@ -23,7 +23,7 @@ export default function useGameCreation() {
         setError("");
 
         const handleGameCreated = ({ game, player_id }) => {
-            createGame(game, player_id);
+            createGame(game, game.host_id);
             setIsCreating(false);
             cleanup();
             return { success: true, gameId: game.id };

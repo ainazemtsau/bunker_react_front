@@ -43,39 +43,62 @@ const useGameStore = create(
             setError: (error) => setWithLog({ error }, 'setError'),
             setConnected: (connected) => setWithLog({ isConnected: connected }, 'setConnected'),
 
+            // stores/gameStore.js
+            // stores/gameStore.js
             initializeFromSession: async (socket) => {
                 const session = getSession();
-                if (!session) {
-                    logStateChange('initializeFromSession (no session)', get());
-                    return { success: false, reason: 'no_session' };
-                }
-                setWithLog({ isLoading: true, error: null }, 'initializeFromSession (start)');
-                try {
-                    return new Promise((resolve) => {
-                        const timeout = setTimeout(() => {
-                            setWithLog({ isLoading: false, error: 'Connection timeout' }, 'initializeFromSession (timeout)');
-                            resolve({ success: false, reason: 'timeout' });
-                        }, 10000);
-                        clearTimeout(timeout);
+                if (!session) return { success: false, reason: "no_session" };
+
+                return new Promise((resolve) => {
+                    let finished = false;
+                    function finish(result) {
+                        if (!finished) {
+                            finished = true;
+                            cleanup();
+                            resolve(result);
+                        }
+                    }
+                    function cleanup() {
+                        socket.off('rejoined', onRejoined);
+                        socket.off('error', onError);
+                    }
+                    const onRejoined = (data) => {
+                        console.log('Rejoined game:', data);
                         setWithLog({
-                            playerId: session.playerId,
+                            playerId: data.player_id,
                             role: session.role,
-                            game: { id: session.gameId },
+                            game: data.game,
                             isLoading: false,
                             error: null,
-                        }, 'initializeFromSession (success)');
-                        resolve({
+                        }, 'initializeFromSession (rejoined)');
+                        finish({
                             success: true,
-                            game: { id: session.gameId },
-                            playerId: session.playerId,
+                            game: data.game,
+                            playerId: data.player_id,
                             role: session.role
                         });
+                    };
+                    const onError = (err) => {
+                        setWithLog({ isLoading: false, error: err.message }, 'initializeFromSession (error)');
+                        finish({ success: false, reason: "error", message: err.message });
+                    };
+                    socket.on('rejoined', onRejoined);
+                    socket.on('error', onError);
+
+                    console.log('Rejoining game with session:', session);
+                    socket.emit('rejoin_game', {
+                        id: session.gameId,
+                        player_id: session.playerId
                     });
-                } catch (error) {
-                    setWithLog({ isLoading: false, error: error.message }, 'initializeFromSession (error)');
-                    return { success: false, reason: 'error', message: error.message };
-                }
+
+                    // Timeout after 10 seconds
+                    // setTimeout(() => {
+                    //     setWithLog({ isLoading: false, error: 'Connection timeout' }, 'initializeFromSession (timeout)');
+                    //     finish({ success: false, reason: "timeout" });
+                    // }, 10000);
+                });
             },
+
             getOnlinePlayers: () => {
                 const { game } = get();
                 if (!game || !game.players) return [];

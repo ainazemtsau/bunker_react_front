@@ -39,7 +39,7 @@ export default function PlayerView({ backToMenu }) {
   };
 
   const isKickedBeforePhase2 =
-    game.phase !== "phase2" && game.eliminated_ids.includes(playerId);
+    game?.phase !== "phase2" && game?.eliminated_ids?.includes(playerId);
 
   /* ─── guards ─────────────────────────────────── */
   if (!game) return <LoadingView />;
@@ -82,17 +82,17 @@ export default function PlayerView({ backToMenu }) {
       break;
 
     case "phase2":
-      PhaseComponent = Phase2View;
-      break;
+      // ✅ Используем новый Phase2View который автоматически определит Player/Host интерфейс
+      return <Phase2View />;
+
     case "finished":
       return <FinishedView backToMenu={() => (window.location.href = "/")} />;
 
-      break;
     default:
       return <Typography>Unknown phase: {game.phase}</Typography>;
   }
 
-  /* ─── render ─────────────────────────────────── */
+  /* ─── render phase 1 ─────────────────────────── */
   return (
     <>
       <Box sx={{ pb: 12 }}>

@@ -4,71 +4,106 @@ import useGameStore from '../stores/gameStore';
 import { PHASE2_UI } from '../constants/phase2';
 
 /**
- * Phase 2 specific actions hook
+ * Phase 2 specific actions hook according to documentation
  */
 export default function usePhase2Actions() {
     const { socket, isConnected } = useSocket();
     const { game, playerId } = useGameStore();
 
-    const sendPhase2Action = useCallback((action, payload = {}) => {
+    const sendPhase2Event = useCallback((eventName, payload = {}) => {
         if (!socket || typeof socket.emit !== 'function') {
-            console.warn('Socket not available');
-            return;
+            console.warn('[PHASE2_ACTIONS] Socket not available');
+            return false;
         }
 
         if (!isConnected) {
-            console.warn('Socket not connected');
-            return;
+            console.warn('[PHASE2_ACTIONS] Socket not connected');
+            return false;
         }
 
         if (!game) {
-            console.warn('No active game');
-            return;
+            console.warn('[PHASE2_ACTIONS] No active game');
+            return false;
         }
 
-        console.log(`Sending Phase 2 action: ${action}`, payload);
+        console.log(`[PHASE2_ACTIONS] Sending ${eventName}:`, payload);
 
         try {
-            socket.emit('game_action', {
+            socket.emit(eventName, {
                 gameId: game.id,
-                action,
-                payload: {
-                    ...payload,
-                    player_id: playerId // Always include current player ID
-                }
+                playerId,
+                ...payload
             });
+            return true;
         } catch (error) {
-            console.error('Failed to send Phase 2 action:', error);
+            console.error(`[PHASE2_ACTIONS] Failed to send ${eventName}:`, error);
+            return false;
         }
     }, [socket, isConnected, game, playerId]);
 
-    // Specific action methods
+    // ✅ Действие игрока согласно документации
     const makeAction = useCallback((actionId, params = {}) => {
-        sendPhase2Action(PHASE2_UI.API_ACTIONS.MAKE_ACTION, {
-            action_id: actionId,
+        return sendPhase2Event(PHASE2_UI.EVENTS.PLAYER_ACTION, {
+            actionId,
             params
         });
-    }, [sendPhase2Action]);
+    }, [sendPhase2Event]);
 
+    // ✅ Обработка действий согласно документации
     const processAction = useCallback(() => {
-        sendPhase2Action(PHASE2_UI.API_ACTIONS.PROCESS_ACTION);
-    }, [sendPhase2Action]);
+        return sendPhase2Event(PHASE2_UI.EVENTS.PROCESS_ACTION);
+    }, [sendPhase2Event]);
 
+    // ✅ Разрешение кризиса согласно документации
     const resolveCrisis = useCallback((result) => {
-        sendPhase2Action(PHASE2_UI.API_ACTIONS.RESOLVE_CRISIS, {
-            result // 'bunker_win' or 'bunker_lose'
-        });
-    }, [sendPhase2Action]);
+        if (!['bunker_win', 'bunker_lose'].includes(result)) {
+            console.error('[PHASE2_ACTIONS] Invalid crisis result:', result);
+            return false;
+        }
 
+        return sendPhase2Event(PHASE2_UI.EVENTS.RESOLVE_CRISIS, {
+            result
+        });
+    }, [sendPhase2Event]);
+
+    // ✅ Завершение хода команды согласно документации
     const finishTeamTurn = useCallback(() => {
-        sendPhase2Action(PHASE2_UI.API_ACTIONS.FINISH_TEAM_TURN);
-    }, [sendPhase2Action]);
+        return sendPhase2Event(PHASE2_UI.EVENTS.FINISH_TURN);
+    }, [sendPhase2Event]);
+
+    // ✅ НОВОЕ: Получение предварительного расчета действия
+    const getActionPreview = useCallback((participants, actionId) => {
+        if (!socket || typeof socket.emit !== 'function') {
+            console.warn('[PHASE2_ACTIONS] Socket not available for preview');
+            return false;
+        }
+
+        if (!isConnected || !game) {
+            console.warn('[PHASE2_ACTIONS] Not connected or no game for preview');
+            return false;
+        }
+
+        console.log('[PHASE2_ACTIONS] Requesting action preview:', { participants, actionId });
+
+        try {
+            socket.emit('phase2_get_action_preview', {
+                gameId: game.id,
+                participants,
+                actionId
+            });
+            return true;
+        } catch (error) {
+            console.error('[PHASE2_ACTIONS] Failed to request action preview:', error);
+            return false;
+        }
+    }, [socket, isConnected, game]);
 
     return {
         makeAction,
         processAction,
         resolveCrisis,
         finishTeamTurn,
+        getActionPreview, // ✅ Новый метод
         isConnected: isConnected && !!socket
     };
 }

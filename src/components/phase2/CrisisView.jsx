@@ -24,7 +24,11 @@ import {
 import usePhase2Selectors from "../../hooks/usePhase2Selectors";
 import usePhase2Actions from "../../hooks/usePhase2Actions";
 import useGameStore from "../../stores/gameStore";
-import { CHARACTER_STATS } from "../../constants/phase2";
+import {
+  TEAM_COLORS,
+  TEAM_NAMES,
+  CHARACTER_STATS,
+} from "../../constants/phase2";
 
 const CrisisContainer = styled(Box)(({ theme }) => ({
   minHeight: "100vh",
@@ -82,7 +86,17 @@ const DecisionButton = styled(Button)(({ choice, theme }) => ({
   },
 }));
 
-export default function CrisisView() {
+// Иконки для статистик
+const StatIcons = {
+  [CHARACTER_STATS.TECHNICAL]: TechIcon,
+  [CHARACTER_STATS.STRENGTH]: StrengthIcon,
+  [CHARACTER_STATS.INTELLIGENCE]: IntelIcon,
+  [CHARACTER_STATS.HEALTH]: HealthIcon,
+  [CHARACTER_STATS.EMPATHY]: EmpathyIcon,
+  [CHARACTER_STATS.CHARISMA]: CharismaIcon,
+};
+
+export default function RegularCrisisView() {
   const { currentCrisis, teamStats } = usePhase2Selectors();
   const { resolveCrisis } = usePhase2Actions();
   const role = useGameStore((s) => s.role);
@@ -95,13 +109,11 @@ export default function CrisisView() {
     );
   }
 
-  const crisisType = currentCrisis.type;
-
   const handleResolution = (result) => {
     resolveCrisis(result);
   };
 
-  // Calculate team advantages for important stats
+  // Вычисляем преимущества команд по важным статистикам согласно документации
   const getStatAdvantage = (stat) => {
     const bunkerStat = teamStats.bunker?.[stat] || 0;
     const outsideStat = teamStats.outside?.[stat] || 0;
@@ -112,10 +124,12 @@ export default function CrisisView() {
   };
 
   const getOverallAdvantage = () => {
+    if (!currentCrisis.important_stats) return "equal";
+
     let bunkerAdvantages = 0;
     let outsideAdvantages = 0;
 
-    crisisType.importantStats.forEach((stat) => {
+    currentCrisis.important_stats.forEach((stat) => {
       const advantage = getStatAdvantage(stat);
       if (advantage === "bunker") bunkerAdvantages++;
       if (advantage === "outside") outsideAdvantages++;
@@ -146,11 +160,11 @@ export default function CrisisView() {
           </Typography>
 
           <Typography variant="h4" gutterBottom sx={{ color: "#ff9800" }}>
-            {crisisType.name}
+            {currentCrisis.name}
           </Typography>
 
           <Typography variant="h6" sx={{ maxWidth: 600, mx: "auto" }}>
-            {crisisType.description}
+            {currentCrisis.description}
           </Typography>
         </CardContent>
       </CrisisCard>
@@ -169,82 +183,103 @@ export default function CrisisView() {
                 Важные характеристики для разрешения
               </Typography>
 
-              <Grid container spacing={2}>
-                {crisisType.importantStats.map((stat) => {
-                  const advantage = getStatAdvantage(stat);
-                  const bunkerValue = teamStats.bunker?.[stat] || 0;
-                  const outsideValue = teamStats.outside?.[stat] || 0;
+              {currentCrisis.important_stats &&
+              currentCrisis.important_stats.length > 0 ? (
+                <Grid container spacing={2}>
+                  {currentCrisis.important_stats.map((stat) => {
+                    const advantage = getStatAdvantage(stat);
+                    const bunkerValue = teamStats.bunker?.[stat] || 0;
+                    const outsideValue = teamStats.outside?.[stat] || 0;
+                    const IconComponent = StatIcons[stat] || TechIcon;
 
-                  return (
-                    <Grid item xs={12} sm={6} md={4} key={stat}>
-                      <StatCard advantage={advantage}>
-                        <CardContent sx={{ textAlign: "center", py: 2 }}>
-                          <Typography variant="h6" gutterBottom>
-                            stat
-                          </Typography>
-
-                          <Stack
-                            direction="row"
-                            justifyContent="space-between"
-                            alignItems="center"
-                          >
-                            <Box textAlign="center">
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                              >
-                                Бункер
-                              </Typography>
-                              <Typography
-                                variant="h5"
-                                color="#1976d2"
-                                fontWeight="bold"
-                              >
-                                {bunkerValue}
-                              </Typography>
-                            </Box>
-
-                            <Typography variant="h6" color="text.secondary">
-                              VS
+                    return (
+                      <Grid item xs={12} sm={6} md={4} key={stat}>
+                        <StatCard advantage={advantage}>
+                          <CardContent sx={{ textAlign: "center", py: 2 }}>
+                            <IconComponent sx={{ fontSize: 32, mb: 1 }} />
+                            <Typography variant="h6" gutterBottom>
+                              {stat}
                             </Typography>
 
-                            <Box textAlign="center">
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                              >
-                                Снаружи
-                              </Typography>
-                              <Typography
-                                variant="h5"
-                                color="#d32f2f"
-                                fontWeight="bold"
-                              >
-                                {outsideValue}
-                              </Typography>
-                            </Box>
-                          </Stack>
+                            <Stack
+                              direction="row"
+                              justifyContent="space-between"
+                              alignItems="center"
+                            >
+                              <Box textAlign="center">
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                >
+                                  Бункер
+                                </Typography>
+                                <Typography
+                                  variant="h5"
+                                  color={TEAM_COLORS.bunker}
+                                  fontWeight="bold"
+                                >
+                                  {bunkerValue}
+                                </Typography>
+                              </Box>
 
-                          {advantage !== "equal" && (
-                            <Chip
-                              label={`Преимущество: ${
-                                advantage === "bunker" ? "Бункер" : "Снаружи"
-                              }`}
-                              color={
-                                advantage === "bunker" ? "primary" : "error"
-                              }
-                              size="small"
-                              sx={{ mt: 1 }}
-                            />
-                          )}
-                        </CardContent>
-                      </StatCard>
-                    </Grid>
-                  );
-                })}
-              </Grid>
+                              <Typography variant="h6" color="text.secondary">
+                                VS
+                              </Typography>
+
+                              <Box textAlign="center">
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                >
+                                  Снаружи
+                                </Typography>
+                                <Typography
+                                  variant="h5"
+                                  color={TEAM_COLORS.outside}
+                                  fontWeight="bold"
+                                >
+                                  {outsideValue}
+                                </Typography>
+                              </Box>
+                            </Stack>
+
+                            {advantage !== "equal" && (
+                              <Chip
+                                label={`Преимущество: ${TEAM_NAMES[advantage]}`}
+                                color={
+                                  advantage === "bunker" ? "primary" : "error"
+                                }
+                                size="small"
+                                sx={{ mt: 1 }}
+                              />
+                            )}
+                          </CardContent>
+                        </StatCard>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              ) : (
+                <Alert severity="info">
+                  Информация о важных характеристиках недоступна
+                </Alert>
+              )}
             </CardContent>
           </Card>
+
+          {/* Mini Game */}
+          {currentCrisis.mini_game && (
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="h5" gutterBottom>
+                  🎮 {currentCrisis.mini_game.name}
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  {currentCrisis.mini_game.rules}
+                </Typography>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Decision Buttons */}
           {role === "host" && (
@@ -325,36 +360,65 @@ export default function CrisisView() {
                   <strong>Силы равны</strong> - решение за вами
                 </Alert>
               )}
+
+              {/* Team Advantages from crisis data */}
+              {currentCrisis.team_advantages && (
+                <Box mt={2}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Преимущества по данным кризиса:
+                  </Typography>
+                  <Stack direction="row" spacing={1}>
+                    <Chip
+                      label={`Бункер: ${
+                        currentCrisis.team_advantages.bunker || 0
+                      }`}
+                      color="primary"
+                      size="small"
+                    />
+                    <Chip
+                      label={`Снаружи: ${
+                        currentCrisis.team_advantages.outside || 0
+                      }`}
+                      color="error"
+                      size="small"
+                    />
+                  </Stack>
+                </Box>
+              )}
             </CardContent>
           </Card>
 
+          {/* Crisis Info */}
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Последствия провала
+                Информация о кризисе
               </Typography>
 
-              <Stack spacing={1}>
-                {crisisType.onFailure.bunker_damage && (
-                  <Chip
-                    label={`-${crisisType.onFailure.bunker_damage} HP бункера`}
-                    color="error"
-                    variant="outlined"
-                  />
-                )}
-                {crisisType.onFailure.morale_damage && (
-                  <Chip
-                    label={`-${crisisType.onFailure.morale_damage} морали`}
-                    color="warning"
-                    variant="outlined"
-                  />
-                )}
-                {crisisType.onFailure.defense_penalty && (
-                  <Chip
-                    label={`-${crisisType.onFailure.defense_penalty} защиты`}
-                    color="error"
-                    variant="outlined"
-                  />
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="subtitle2">ID кризиса:</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {currentCrisis.id}
+                  </Typography>
+                </Box>
+
+                {currentCrisis.important_stats && (
+                  <Box>
+                    <Typography variant="subtitle2">
+                      Важные статистики:
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                      {currentCrisis.important_stats.map((stat) => (
+                        <Chip
+                          key={stat}
+                          label={stat}
+                          size="small"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Stack>
+                  </Box>
                 )}
               </Stack>
             </CardContent>

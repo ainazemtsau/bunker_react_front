@@ -10,6 +10,7 @@ import VotingPhase from "./host/VotingPhase";
 import BunkerCardsBar from "./BunkerCardsBar";
 import Phase2View from "./Phase2View";
 import FinishedView from "./FinishedView";
+
 export default function HostView() {
   const { game } = useGameStore();
   const { sendAction, isConnected } = useGameActions();
@@ -40,8 +41,8 @@ export default function HostView() {
       PhaseUI = <VotingPhase game={game} sendAction={sendAction} />;
       break;
     case "phase2":
-      PhaseUI = <Phase2View />;
-      break;
+      // ✅ Используем новый Phase2View который автоматически покажет Host интерфейс
+      return <Phase2View />;
     case "finished":
       PhaseUI = (
         <FinishedView backToMenu={() => (window.location.href = "/")} />

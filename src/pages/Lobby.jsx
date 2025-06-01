@@ -16,11 +16,12 @@ import useGameCreation from "../hooks/useGameCreation";
 import useGameJoining from "../hooks/useGameJoining";
 import GradientButton from "../components/GradientButton";
 import NetworkStatus from "../components/NetworkStatus";
-
+import { QRCodeCanvas } from "qrcode.react";
+import { HOST_ADDR } from "../config";
 export default function Lobby() {
   const navigate = useNavigate();
   const { error: storeError, clearGame } = useGameStore();
-
+  const joinUrl = `${window.location.protocol}//${window.location.host}`;
   // Отдельные хуки для создания и присоединения к игре
   const {
     createHost,
@@ -149,6 +150,40 @@ export default function Lobby() {
           </Card>
         </Grid>
       </Grid>
+      {/* QR-код для быстрого входа */}
+      <Box
+        mt={6}
+        display="flex"
+        flexDirection="column"
+        alignItems="center"
+        gap={2}
+      >
+        <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+          Быстрый вход с телефона
+        </Typography>
+        <QRCodeCanvas
+          value={HOST_ADDR}
+          size={192}
+          bgColor="#fff"
+          fgColor="#222"
+          style={{ borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}
+        />
+        <Typography variant="body1" color="textSecondary">
+          Наведи камеру телефона на QR-код <br />
+          или перейди по адресу:
+          <br />
+          <Typography
+            component="span"
+            sx={{
+              fontWeight: "bold",
+              color: "#1976d2",
+              wordBreak: "break-all",
+            }}
+          >
+            {HOST_ADDR}
+          </Typography>
+        </Typography>
+      </Box>
 
       <NetworkStatus />
     </Box>

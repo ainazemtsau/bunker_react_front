@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from "react"; // убираем useEffect
 import {
   Box,
   Card,
@@ -11,7 +11,6 @@ import {
   Alert,
   Grid,
   Fade,
-  Divider,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import {
@@ -24,7 +23,7 @@ import {
 import usePhase2Selectors from "../../hooks/usePhase2Selectors";
 import usePhase2Actions from "../../hooks/usePhase2Actions";
 import useGameStore from "../../stores/gameStore";
-import { PHASE2_UI } from "../../constants/phase2";
+import { PHASE2_UI, TEAM_COLORS, TEAM_NAMES } from "../../constants/phase2";
 
 const ProcessingContainer = styled(Box)(({ theme }) => ({
   minHeight: "100vh",
@@ -66,17 +65,20 @@ const DiceAnimation = styled(Box)(({ rolling }) => ({
 }));
 
 export default function ActionProcessingView() {
-  const { actionQueue, canProcessActions, currentTeam, round, myTeam } =
+  const { actionQueue, canProcessActions, currentTeam, round, currentAction } =
     usePhase2Selectors();
 
   const { processAction } = usePhase2Actions();
-  const game = useGameStore((s) => s.game);
+  const { game } = useGameStore();
   const role = useGameStore((s) => s.role);
 
   const [processing, setProcessing] = useState(false);
-  const [currentResult, setCurrentResult] = useState(null);
+
+  // ❌ УБИРАЕМ автоматическое выполнение useEffect
 
   const handleProcessAction = async () => {
+    if (!canProcessActions || processing) return;
+
     setProcessing(true);
 
     // Simulate dice rolling animation
@@ -91,15 +93,14 @@ export default function ActionProcessingView() {
     return player?.name || playerId;
   };
 
-  const teamColors = {
-    [PHASE2_UI.TEAMS.BUNKER]: "#1976d2",
-    [PHASE2_UI.TEAMS.OUTSIDE]: "#d32f2f",
+  const getActionName = (actionType) => {
+    const availableActions = game?.phase2?.available_actions || [];
+    const action = availableActions.find((a) => a.id === actionType);
+    return action?.name || actionType;
   };
 
-  const teamNames = {
-    [PHASE2_UI.TEAMS.BUNKER]: "Команда бункера",
-    [PHASE2_UI.TEAMS.OUTSIDE]: "Команда снаружи",
-  };
+  // Группируем действия по типам согласно документации
+  const groupedActions = Object.entries(actionQueue);
 
   return (
     <ProcessingContainer>
@@ -121,11 +122,11 @@ export default function ActionProcessingView() {
           <Box display="flex" justifyContent="center" gap={2}>
             <Chip label={`Раунд ${round}`} color="primary" size="large" />
             <Chip
-              label={teamNames[currentTeam]}
+              label={TEAM_NAMES[currentTeam]}
               sx={{
-                backgroundColor: `${teamColors[currentTeam]}20`,
-                color: teamColors[currentTeam],
-                border: `1px solid ${teamColors[currentTeam]}`,
+                backgroundColor: `${TEAM_COLORS[currentTeam]}20`,
+                color: TEAM_COLORS[currentTeam],
+                border: `1px solid ${TEAM_COLORS[currentTeam]}`,
               }}
               size="large"
             />
@@ -136,122 +137,129 @@ export default function ActionProcessingView() {
       <Grid container spacing={3}>
         {/* Action Queue */}
         <Grid item xs={12} lg={8}>
-          <ActionQueueCard>
-            <CardContent>
-              <Typography
-                variant="h5"
-                gutterBottom
-                sx={{ display: "flex", alignItems: "center", gap: 1 }}
-              >
-                <ProcessIcon />
-                Очередь действий
-              </Typography>
-
-              {Object.keys(actionQueue).length === 0 ? (
+          {groupedActions.length === 0 ? (
+            <Card>
+              <CardContent sx={{ textAlign: "center", py: 4 }}>
                 <Alert severity="info">
-                  Все действия команды обработаны. Ожидание завершения хода.
+                  Все действия команды обработаны. Переход к следующему этапу...
                 </Alert>
-              ) : (
-                <>
-                  {Object.entries(actionQueue).map(
-                    ([actionType, group], index) => {
-                      const action = actionType;
+              </CardContent>
+            </Card>
+          ) : (
+            <ActionQueueCard>
+              <CardContent>
+                <Typography
+                  variant="h5"
+                  gutterBottom
+                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                >
+                  <ProcessIcon />
+                  Очередь действий
+                </Typography>
 
-                      return (
-                        <Card
-                          key={actionType}
-                          sx={{ mb: 2, bgcolor: "rgba(0,0,0,0.2)" }}
+                {groupedActions.map(([actionType, group], index) => {
+                  const actionName = getActionName(actionType);
+                  const isCurrentAction = index === 0;
+
+                  return (
+                    <Card
+                      key={actionType}
+                      sx={{
+                        mb: 2,
+                        bgcolor: isCurrentAction
+                          ? "rgba(255,193,7,0.1)"
+                          : "rgba(0,0,0,0.2)",
+                        border: isCurrentAction
+                          ? "1px solid rgba(255,193,7,0.4)"
+                          : "none",
+                      }}
+                    >
+                      <CardContent>
+                        <Box
+                          display="flex"
+                          justifyContent="space-between"
+                          alignItems="center"
+                          mb={2}
                         >
-                          <CardContent>
-                            <Box
-                              display="flex"
-                              justifyContent="space-between"
-                              alignItems="center"
-                              mb={2}
-                            >
-                              <Typography variant="h6" fontWeight="bold">
-                                {action?.name || actionType}
-                              </Typography>
+                          <Typography variant="h6" fontWeight="bold">
+                            {actionName}
+                          </Typography>
+                          {isCurrentAction && (
+                            <Chip
+                              label="СЛЕДУЮЩЕЕ"
+                              color="warning"
+                              icon={<ProcessIcon />}
+                            />
+                          )}
+                        </Box>
+
+                        <Box mb={2}>
+                          <Typography variant="subtitle2" gutterBottom>
+                            Участники ({group.participants?.length || 0}):
+                          </Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap">
+                            {(group.participants || []).map((playerId) => (
                               <Chip
-                                label={`Сложность: ${
-                                  action?.difficulty || "?"
-                                }+`}
-                                color="warning"
-                                icon={<DiceIcon />}
+                                key={playerId}
+                                label={getPlayerName(playerId)}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
                               />
-                            </Box>
+                            ))}
+                          </Stack>
+                        </Box>
 
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              mb={2}
-                            >
-                              {action?.description}
-                            </Typography>
-
-                            <Box mb={2}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                Участники ({group.participants.length}):
-                              </Typography>
-                              <Stack
-                                direction="row"
-                                spacing={1}
-                                flexWrap="wrap"
-                              >
-                                {group.participants.map((playerId) => (
-                                  <Chip
-                                    key={playerId}
-                                    label={getPlayerName(playerId)}
-                                    size="small"
-                                    color="primary"
-                                    variant="outlined"
-                                  />
-                                ))}
-                              </Stack>
-                            </Box>
-
-                            {index === 0 && (
-                              <Box textAlign="center" mt={2}>
-                                {processing ? (
-                                  <Box>
-                                    <DiceAnimation rolling={processing}>
-                                      🎲
-                                    </DiceAnimation>
-                                    <Typography
-                                      variant="h6"
-                                      color="primary.main"
-                                    >
-                                      Бросаем кости...
-                                    </Typography>
-                                    <LinearProgress sx={{ mt: 2 }} />
-                                  </Box>
-                                ) : (
-                                  role === "host" &&
-                                  canProcessActions && (
-                                    <Button
-                                      variant="contained"
-                                      size="large"
-                                      onClick={handleProcessAction}
-                                      startIcon={<DiceIcon />}
-                                    >
-                                      Обработать действие
-                                    </Button>
-                                  )
-                                )}
+                        {/* ✅ КНОПКА обработки показывается только для текущего действия и только хосту */}
+                        {isCurrentAction && role === "host" && (
+                          <Box textAlign="center" mt={2}>
+                            {processing ? (
+                              <Box>
+                                <DiceAnimation rolling={processing}>
+                                  🎲
+                                </DiceAnimation>
+                                <Typography variant="h6" color="primary.main">
+                                  Бросаем кости...
+                                </Typography>
+                                <LinearProgress sx={{ mt: 2 }} />
                               </Box>
+                            ) : canProcessActions ? (
+                              <Button
+                                variant="contained"
+                                size="large"
+                                onClick={handleProcessAction}
+                                startIcon={<DiceIcon />}
+                                sx={{
+                                  background:
+                                    "linear-gradient(45deg, #FF6B35 30%, #F7931E 90%)",
+                                  "&:hover": {
+                                    background:
+                                      "linear-gradient(45deg, #E55A2B 30%, #E8831A 90%)",
+                                  },
+                                }}
+                              >
+                                🎲 Обработать действие
+                              </Button>
+                            ) : (
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                Ожидание готовности к обработке...
+                              </Typography>
                             )}
-                          </CardContent>
-                        </Card>
-                      );
-                    }
-                  )}
-                </>
-              )}
-            </CardContent>
-          </ActionQueueCard>
+                          </Box>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </CardContent>
+            </ActionQueueCard>
+          )}
         </Grid>
 
-        {/* Results Panel */}
+        {/* Results Panel - остается как есть */}
         <Grid item xs={12} lg={4}>
           <Card>
             <CardContent>
@@ -259,7 +267,6 @@ export default function ActionProcessingView() {
                 Последние результаты
               </Typography>
 
-              {/* This would show recent action results */}
               {game?.phase2?.action_log
                 ?.slice(-3)
                 .reverse()
@@ -274,9 +281,19 @@ export default function ActionProcessingView() {
                             <FailIcon color="error" />
                           )}
                           <Typography variant="subtitle2" fontWeight="bold">
-                            {logEntry.action_name || "Действие"}
+                            {logEntry.action_name ||
+                              getActionName(logEntry.action_type)}
                           </Typography>
                         </Box>
+
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          mb={1}
+                        >
+                          Участники:{" "}
+                          {logEntry.participants?.join(", ") || "Неизвестно"}
+                        </Typography>
 
                         <Typography variant="body2" color="text.secondary">
                           Бросок: {logEntry.roll || "?"} + {logEntry.bonus || 0}{" "}
@@ -284,12 +301,30 @@ export default function ActionProcessingView() {
                         </Typography>
 
                         {logEntry.effects && (
-                          <Typography variant="body2" fontWeight="bold" mt={1}>
-                            Урон: {logEntry.damage || 0}
-                          </Typography>
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            mt={1}
+                            flexWrap="wrap"
+                          >
+                            {logEntry.effects.bunker_damage && (
+                              <Chip
+                                label={`-${logEntry.effects.bunker_damage} HP`}
+                                color="error"
+                                size="small"
+                              />
+                            )}
+                            {logEntry.effects.bunker_heal && (
+                              <Chip
+                                label={`+${logEntry.effects.bunker_heal} HP`}
+                                color="success"
+                                size="small"
+                              />
+                            )}
+                          </Stack>
                         )}
 
-                        {logEntry.crisis && (
+                        {logEntry.crisis_triggered && (
                           <Chip
                             icon={<CrisisIcon />}
                             label="Кризис!"
@@ -311,7 +346,7 @@ export default function ActionProcessingView() {
         </Grid>
       </Grid>
 
-      {/* Instructions */}
+      {/* Instructions for non-hosts */}
       {role !== "host" && (
         <Alert severity="info" sx={{ mt: 3 }}>
           Ожидание обработки действий хостом...

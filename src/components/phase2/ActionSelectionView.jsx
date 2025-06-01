@@ -12,13 +12,19 @@ import {
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import ActionCard from "./ActionCard";
-import TeamStatusPanel from "./TeamStatusPanel";
+import Phase2SidePanel from "./Phase2SidePanel";
+import ResourceTracker from "./ResourceTracker";
 import usePhase2Selectors from "../../hooks/usePhase2Selectors";
 import usePhase2Actions from "../../hooks/usePhase2Actions";
-import { PHASE2_UI } from "../../constants/phase2";
-import ResourceTracker from "./ResourceTracker";
+import {
+  PHASE2_UI,
+  TEAM_COLORS,
+  TEAM_NAMES,
+  TEAM_ICONS,
+} from "../../constants/phase2";
 import BunkerObjects from "./BunkerObjects";
 import useGameStore from "../../stores/gameStore";
+
 const ActionContainer = styled(Box)(({ theme }) => ({
   minHeight: "100vh",
   background: `
@@ -58,7 +64,16 @@ const StatusChip = styled(Chip)(({ status, theme }) => {
       border: "#9c27b0",
       text: "#9c27b0",
     },
-    ready: { bg: "rgba(76, 175, 80, 0.2)", border: "#4caf50", text: "#4caf50" },
+    ready: {
+      bg: "rgba(76, 175, 80, 0.2)",
+      border: "#4caf50",
+      text: "#4caf50",
+    },
+    critical: {
+      bg: "rgba(244, 67, 54, 0.2)",
+      border: "#f44336",
+      text: "#f44336",
+    },
   };
 
   const color = colors[status] || colors.waiting;
@@ -83,36 +98,57 @@ export default function ActionSelectionView() {
     round,
     bunkerHp,
     maxHp,
+    morale,
+    maxMorale,
+    supplies,
+    maxSupplies,
+    moraleCountdown,
+    suppliesCountdown,
     actionQueue,
     bunkerMembers,
     outsideMembers,
     isWaitingForTeam,
+    currentPlayer,
+    isMyTeamTurn,
+    isBunkerCritical,
+    currentState,
+    activeStatuses,
+    teamStats,
   } = usePhase2Selectors();
 
   const { makeAction, isConnected } = usePhase2Actions();
   const { game } = useGameStore();
+
   const handleActionSelect = (actionId) => {
-    if (!canMakeAction) return;
+    if (!canMakeAction) {
+      console.warn("[ACTION_SELECTION] Cannot make action:", {
+        canMakeAction,
+        isMyTurn,
+        currentState,
+      });
+      return;
+    }
+
+    console.log("[ACTION_SELECTION] Making action:", actionId);
     makeAction(actionId);
   };
 
-  // Team colors and names
-  const teamConfig = {
-    [PHASE2_UI.TEAMS.BUNKER]: {
-      name: "КОМАНДА БУНКЕРА",
-      color: "#1976d2",
-      icon: "🏠",
-      description: "Защищайте бункер и выживите 10 раундов",
-    },
-    [PHASE2_UI.TEAMS.OUTSIDE]: {
-      name: "КОМАНДА СНАРУЖИ",
-      color: "#d32f2f",
-      icon: "⚔️",
-      description: "Уничтожьте бункер до истечения времени",
-    },
+  // Получаем статистики игрока для расчета шансов успеха
+  const getPlayerStats = () => {
+    const playerId = useGameStore.getState().playerId;
+    if (!game?.characters?.[playerId]) return null;
+
+    return teamStats[myTeam] || null;
   };
 
-  const currentTeamConfig = teamConfig[myTeam];
+  const playerStats = getPlayerStats();
+
+  // Получаем имя текущего игрока
+  const getCurrentPlayerName = () => {
+    if (!currentPlayer || !game?.players) return currentPlayer;
+    const player = game.players.find((p) => p.id === currentPlayer);
+    return player?.name || currentPlayer;
+  };
 
   if (!isPhase2 || !myTeam) {
     return (
@@ -121,11 +157,24 @@ export default function ActionSelectionView() {
           <CardContent sx={{ textAlign: "center", py: 4 }}>
             <CircularProgress sx={{ mb: 2 }} />
             <Typography variant="h6">Загрузка Phase 2...</Typography>
+            <Typography variant="body2" color="text.secondary" mt={1}>
+              Определение команды и загрузка данных...
+            </Typography>
           </CardContent>
         </Card>
       </ActionContainer>
     );
   }
+
+  const teamConfig = {
+    name: TEAM_NAMES[myTeam],
+    color: TEAM_COLORS[myTeam],
+    icon: TEAM_ICONS[myTeam],
+    description:
+      myTeam === PHASE2_UI.TEAMS.BUNKER
+        ? "Защищайте бункер и выживите 10 раундов"
+        : "Уничтожьте бункер до истечения времени",
+  };
 
   return (
     <ActionContainer>
@@ -139,21 +188,21 @@ export default function ActionSelectionView() {
           >
             <Box display="flex" alignItems="center" gap={2}>
               <Typography variant="h3" component="span">
-                {currentTeamConfig.icon}
+                {teamConfig.icon}
               </Typography>
               <Box>
                 <Typography
                   variant="h4"
                   sx={{
-                    color: currentTeamConfig.color,
+                    color: teamConfig.color,
                     fontFamily: '"Orbitron", monospace',
                     fontWeight: "bold",
                   }}
                 >
-                  {currentTeamConfig.name}
+                  {teamConfig.name}
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
-                  {currentTeamConfig.description}
+                  {teamConfig.description}
                 </Typography>
               </Box>
             </Box>
@@ -166,26 +215,49 @@ export default function ActionSelectionView() {
               />
               <StatusChip
                 label={`HP: ${bunkerHp}/${maxHp}`}
-                status={bunkerHp <= 3 ? "warning" : "ready"}
+                status={isBunkerCritical ? "critical" : "ready"}
                 size="small"
               />
               <StatusChip
-                label={isMyTurn ? "ВАШ ХОД" : "ОЖИДАНИЕ"}
-                status={isMyTurn ? "selecting" : "waiting"}
+                label={
+                  isMyTurn
+                    ? "ВАШ ХОД"
+                    : isMyTeamTurn
+                    ? "ХОД КОМАНДЫ"
+                    : "ОЖИДАНИЕ"
+                }
+                status={
+                  isMyTurn ? "selecting" : isMyTeamTurn ? "ready" : "waiting"
+                }
               />
             </Stack>
           </Box>
         </CardContent>
       </TeamHeader>
-      {/* <ResourceTracker phase2={game?.phase2} /> */}
+
+      {/* Resources Display */}
+      <ResourceTracker
+        bunkerHp={bunkerHp}
+        maxHp={maxHp}
+        morale={morale}
+        maxMorale={maxMorale}
+        supplies={supplies}
+        maxSupplies={maxSupplies}
+        moraleCountdown={moraleCountdown}
+        suppliesCountdown={suppliesCountdown}
+        round={round}
+      />
+
+      {/* Bunker Objects Display */}
       <BunkerObjects bunkerObjects={bunkerObjects} />
+
       <Grid container spacing={3}>
         {/* Actions Selection */}
         <Grid item xs={12} lg={8}>
           <Card>
             <CardContent>
               <Typography variant="h5" gutterBottom>
-                Выберите действие
+                {isMyTurn ? "Выберите действие" : "Ожидание хода"}
               </Typography>
 
               {!isConnected && (
@@ -194,8 +266,22 @@ export default function ActionSelectionView() {
                 </Alert>
               )}
 
-              {!canMakeAction && isMyTurn && (
+              {!isMyTeamTurn && (
                 <Alert severity="info" sx={{ mb: 2 }}>
+                  Сейчас ходит {TEAM_NAMES[currentTeam]}. Ожидайте своей
+                  очереди.
+                </Alert>
+              )}
+
+              {isMyTeamTurn && !isMyTurn && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Ожидается ход игрока:{" "}
+                  <strong>{getCurrentPlayerName()}</strong>
+                </Alert>
+              )}
+
+              {isMyTurn && !canMakeAction && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
                   Ожидается подтверждение от сервера...
                 </Alert>
               )}
@@ -214,15 +300,19 @@ export default function ActionSelectionView() {
                       disabled={!canMakeAction}
                       onSelect={() => handleActionSelect(action.id)}
                       myTeam={myTeam}
+                      playerStats={playerStats}
                     />
                   </Grid>
                 ))}
               </ActionsGrid>
 
-              {availableActions.length === 0 && (
+              {availableActions.length === 0 && isMyTurn && (
                 <Box textAlign="center" py={4}>
                   <Typography variant="h6" color="text.secondary">
                     Нет доступных действий
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" mt={1}>
+                    Возможно, все действия заблокированы активными статусами.
                   </Typography>
                 </Box>
               )}
@@ -230,9 +320,9 @@ export default function ActionSelectionView() {
           </Card>
         </Grid>
 
-        {/* Team Status Panel */}
+        {/* ✅ Новая боковая панель с вкладками */}
         <Grid item xs={12} lg={4}>
-          <TeamStatusPanel
+          <Phase2SidePanel
             myTeam={myTeam}
             currentTeam={currentTeam}
             bunkerMembers={bunkerMembers}

@@ -2,6 +2,7 @@ const SESSION_KEY = 'bunker_session';
 
 export const saveSession = (sessionData) => {
     try {
+        console.log('Saving session:', sessionData);
         localStorage.setItem(SESSION_KEY, JSON.stringify({
             ...sessionData,
             timestamp: Date.now()
