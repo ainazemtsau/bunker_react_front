@@ -120,10 +120,8 @@ export default function TurnCompleteView() {
   const detailedHistory = game?.phase2?.detailed_history || [];
   const currentTurnResults =
     detailedHistory.filter(
-      (entry) =>
-        entry.type === "action" &&
-        entry.round === round &&
-        entry.team === currentTeam
+      (entry) => entry.type === "action" && entry.round === round
+      // entry.team === currentTeam
     ) || [];
 
   // Определяем следующую команду и проверяем завершение раунда
