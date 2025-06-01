@@ -119,6 +119,7 @@ function ActionHistoryItem({ entry }) {
               />
             )}
             <Typography variant="caption" color="text.secondary">
+              {/* ✅ ИСПРАВЛЕНО: используем getPlayerName для каждого участника */}
               {entry.participants?.map(getPlayerName).join(", ") ||
                 "Неизвестно"}
             </Typography>
@@ -174,6 +175,20 @@ function ActionHistoryItem({ entry }) {
                   }}
                 >
                   🎲 {entry.roll}
+                </Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Box textAlign="center">
+                <Typography variant="caption" color="text.secondary">
+                  Ваш бонус
+                </Typography>
+                <Typography variant="h6" fontWeight="bold" color="primary.main">
+                  {/* ✅ ИСПРАВЛЕНО: используем combined_stats */}+
+                  {entry.combined_stats || 0}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  от характеристик
                 </Typography>
               </Box>
             </Grid>

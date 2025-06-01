@@ -31,6 +31,7 @@ export default function PlayerView({ backToMenu }) {
 
   /* ─── helpers for reveal & vote ──────────────── */
   const handleReveal = (attribute) => {
+    console.log("Revealing attribute:", attribute);
     sendAction("reveal", { player_id: playerId, attribute });
   };
 

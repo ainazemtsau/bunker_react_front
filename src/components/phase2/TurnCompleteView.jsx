@@ -117,10 +117,13 @@ export default function TurnCompleteView() {
     finishTeamTurn();
   };
 
-  // Получаем результаты действий текущего хода из лога
+  const detailedHistory = game?.phase2?.detailed_history || [];
   const currentTurnResults =
-    game?.phase2?.action_log?.filter(
-      (entry) => entry.round === round && entry.team === currentTeam
+    detailedHistory.filter(
+      (entry) =>
+        entry.type === "action" &&
+        entry.round === round &&
+        entry.team === currentTeam
     ) || [];
 
   // Определяем следующую команду и проверяем завершение раунда
@@ -213,7 +216,10 @@ export default function TurnCompleteView() {
               {currentTurnResults.length > 0 ? (
                 <Stack spacing={2}>
                   {currentTurnResults.map((result, index) => (
-                    <Card key={index} sx={{ bgcolor: "rgba(0,0,0,0.2)" }}>
+                    <Card
+                      key={`${result.round}-${result.team}-${index}`}
+                      sx={{ bgcolor: "rgba(0,0,0,0.2)" }}
+                    >
                       <CardContent sx={{ py: 2 }}>
                         <Box
                           display="flex"
@@ -222,7 +228,7 @@ export default function TurnCompleteView() {
                           mb={1}
                         >
                           <Typography variant="h6" fontWeight="bold">
-                            {result.action_name || result.action_type}
+                            {result.action_name || result.action_id}
                           </Typography>
                           <Chip
                             label={result.success ? "УСПЕХ" : "НЕУДАЧА"}
@@ -248,47 +254,53 @@ export default function TurnCompleteView() {
                           flexWrap="wrap"
                         >
                           <Typography variant="body2">
-                            Бросок: <strong>{result.roll || "?"}</strong> +{" "}
-                            {result.bonus || 0} ={" "}
-                            {(result.roll || 0) + (result.bonus || 0)}
+                            Бросок: <strong>{result.roll}</strong> +{" "}
+                            {result.combined_stats} ={" "}
+                            {result.roll + result.combined_stats}
+                            (нужно было {result.required_roll}+)
                           </Typography>
 
-                          {result.effects && (
-                            <Stack direction="row" spacing={1} flexWrap="wrap">
-                              {result.effects.bunker_damage && (
-                                <Chip
-                                  icon={<DamageIcon />}
-                                  label={`-${result.effects.bunker_damage} HP`}
-                                  color="error"
-                                  size="small"
-                                />
-                              )}
-                              {result.effects.bunker_heal && (
-                                <Chip
-                                  icon={<HealIcon />}
-                                  label={`+${result.effects.bunker_heal} HP`}
-                                  color="success"
-                                  size="small"
-                                />
-                              )}
-                              {result.effects.morale_damage && (
-                                <Chip
-                                  icon={<DamageIcon />}
-                                  label={`-${result.effects.morale_damage} Мораль`}
-                                  color="warning"
-                                  size="small"
-                                />
-                              )}
-                              {result.effects.morale_heal && (
-                                <Chip
-                                  icon={<HealIcon />}
-                                  label={`+${result.effects.morale_heal} Мораль`}
-                                  color="success"
-                                  size="small"
-                                />
-                              )}
-                            </Stack>
-                          )}
+                          {result.effects &&
+                            Object.keys(result.effects).length > 0 && (
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                flexWrap="wrap"
+                              >
+                                {result.effects.bunker_damage && (
+                                  <Chip
+                                    icon={<DamageIcon />}
+                                    label={`-${result.effects.bunker_damage} HP`}
+                                    color="error"
+                                    size="small"
+                                  />
+                                )}
+                                {result.effects.bunker_heal && (
+                                  <Chip
+                                    icon={<HealIcon />}
+                                    label={`+${result.effects.bunker_heal} HP`}
+                                    color="success"
+                                    size="small"
+                                  />
+                                )}
+                                {result.effects.morale_damage && (
+                                  <Chip
+                                    icon={<DamageIcon />}
+                                    label={`-${result.effects.morale_damage} Мораль`}
+                                    color="warning"
+                                    size="small"
+                                  />
+                                )}
+                                {result.effects.morale_heal && (
+                                  <Chip
+                                    icon={<HealIcon />}
+                                    label={`+${result.effects.morale_heal} Мораль`}
+                                    color="success"
+                                    size="small"
+                                  />
+                                )}
+                              </Stack>
+                            )}
 
                           {result.crisis_triggered && (
                             <Chip

@@ -1,4 +1,5 @@
-import React, { useState } from "react"; // убираем useEffect
+// src/components/phase2/ActionProcessingView.jsx
+import React, { useState } from "react";
 import {
   Box,
   Card,
@@ -11,6 +12,7 @@ import {
   Alert,
   Grid,
   Fade,
+  Snackbar,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import {
@@ -52,6 +54,27 @@ const ResultCard = styled(Card)(({ success, theme }) => ({
   marginBottom: theme.spacing(2),
 }));
 
+const LatestResultCard = styled(Card)(({ success, theme }) => ({
+  background: success
+    ? "linear-gradient(135deg, rgba(76, 175, 80, 0.3) 0%, rgba(76, 175, 80, 0.2) 100%)"
+    : "linear-gradient(135deg, rgba(244, 67, 54, 0.3) 0%, rgba(244, 67, 54, 0.2) 100%)",
+  border: `3px solid ${
+    success ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.6)"
+  }`,
+  marginBottom: theme.spacing(3),
+  animation: "highlight 2s ease-in-out",
+  "@keyframes highlight": {
+    "0%": { transform: "scale(1)", boxShadow: "none" },
+    "50%": {
+      transform: "scale(1.02)",
+      boxShadow: `0 0 30px ${
+        success ? "rgba(76, 175, 80, 0.4)" : "rgba(244, 67, 54, 0.4)"
+      }`,
+    },
+    "100%": { transform: "scale(1)", boxShadow: "none" },
+  },
+}));
+
 const DiceAnimation = styled(Box)(({ rolling }) => ({
   fontSize: "3rem",
   animation: rolling ? "roll 1s ease-in-out" : "none",
@@ -65,7 +88,7 @@ const DiceAnimation = styled(Box)(({ rolling }) => ({
 }));
 
 export default function ActionProcessingView() {
-  const { actionQueue, canProcessActions, currentTeam, round, currentAction } =
+  const { actionQueue, canProcessActions, currentTeam, round } =
     usePhase2Selectors();
 
   const { processAction } = usePhase2Actions();
@@ -73,8 +96,11 @@ export default function ActionProcessingView() {
   const role = useGameStore((s) => s.role);
 
   const [processing, setProcessing] = useState(false);
-
-  // ❌ УБИРАЕМ автоматическое выполнение useEffect
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
 
   const handleProcessAction = async () => {
     if (!canProcessActions || processing) return;
@@ -85,11 +111,23 @@ export default function ActionProcessingView() {
     setTimeout(() => {
       processAction();
       setProcessing(false);
+
+      // Показываем уведомление
+      setSnackbar({
+        open: true,
+        message: "🎲 Действие обработано! Проверьте результаты.",
+        severity: "success",
+      });
     }, 2000);
   };
 
+  // ✅ ИСПРАВЛЕННАЯ функция поиска игрока
   const getPlayerName = (playerId) => {
-    const player = game?.players?.find((p) => p.id === playerId);
+    if (!game?.players || !Array.isArray(game.players)) {
+      console.warn("Players data not available or not array:", game?.players);
+      return playerId;
+    }
+    const player = game.players.find((p) => p.id === playerId);
     return player?.name || playerId;
   };
 
@@ -101,6 +139,16 @@ export default function ActionProcessingView() {
 
   // Группируем действия по типам согласно документации
   const groupedActions = Object.entries(actionQueue);
+
+  // ✅ ИСПРАВЛЕНО: Получаем последний результат из detailed_history
+  const detailedHistory = game?.phase2?.detailed_history || [];
+  const lastResult =
+    detailedHistory.length > 0
+      ? detailedHistory[detailedHistory.length - 1]
+      : null;
+
+  console.log("[ACTION_PROCESSING] Last result:", lastResult);
+  console.log("[ACTION_PROCESSING] Players:", game?.players);
 
   return (
     <ProcessingContainer>
@@ -210,7 +258,7 @@ export default function ActionProcessingView() {
                           </Stack>
                         </Box>
 
-                        {/* ✅ КНОПКА обработки показывается только для текущего действия и только хосту */}
+                        {/* Кнопка обработки */}
                         {isCurrentAction && role === "host" && (
                           <Box textAlign="center" mt={2}>
                             {processing ? (
@@ -259,19 +307,113 @@ export default function ActionProcessingView() {
           )}
         </Grid>
 
-        {/* Results Panel - остается как есть */}
+        {/* Results Panel */}
         <Grid item xs={12} lg={4}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Последние результаты
+                Результаты действий
               </Typography>
 
-              {game?.phase2?.action_log
-                ?.slice(-3)
+              {/* ✅ ИСПРАВЛЕНО: Показываем последний результат из detailed_history */}
+              {lastResult && lastResult.type === "action" && (
+                <LatestResultCard success={lastResult.success} sx={{ mb: 2 }}>
+                  <CardContent sx={{ py: 2 }}>
+                    <Box display="flex" alignItems="center" gap={1} mb={1}>
+                      {lastResult.success ? (
+                        <SuccessIcon color="success" />
+                      ) : (
+                        <FailIcon color="error" />
+                      )}
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        ПОСЛЕДНИЙ РЕЗУЛЬТАТ
+                      </Typography>
+                    </Box>
+
+                    <Typography variant="h6" fontWeight="bold" mb={1}>
+                      {lastResult.action_name || lastResult.action_id}
+                    </Typography>
+
+                    <Typography variant="body2" color="text.secondary" mb={1}>
+                      Участники:{" "}
+                      {lastResult.participants?.map(getPlayerName).join(", ") ||
+                        "Неизвестно"}
+                    </Typography>
+
+                    <Typography variant="body2" color="text.secondary" mb={1}>
+                      Команда: {TEAM_NAMES[lastResult.team] || lastResult.team}{" "}
+                      (Раунд {lastResult.round})
+                    </Typography>
+
+                    <Typography variant="body2" color="text.secondary">
+                      Бросок: {lastResult.roll} + {lastResult.combined_stats} ={" "}
+                      {lastResult.roll + lastResult.combined_stats}
+                      (нужно было {lastResult.required_roll}+)
+                    </Typography>
+
+                    {lastResult.effects &&
+                      Object.keys(lastResult.effects).length > 0 && (
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          mt={1}
+                          flexWrap="wrap"
+                        >
+                          {lastResult.effects.bunker_damage && (
+                            <Chip
+                              label={`-${lastResult.effects.bunker_damage} HP`}
+                              color="error"
+                              size="small"
+                            />
+                          )}
+                          {lastResult.effects.bunker_heal && (
+                            <Chip
+                              label={`+${lastResult.effects.bunker_heal} HP`}
+                              color="success"
+                              size="small"
+                            />
+                          )}
+                          {lastResult.effects.morale_damage && (
+                            <Chip
+                              label={`-${lastResult.effects.morale_damage} Мораль`}
+                              color="warning"
+                              size="small"
+                            />
+                          )}
+                          {lastResult.effects.morale_heal && (
+                            <Chip
+                              label={`+${lastResult.effects.morale_heal} Мораль`}
+                              color="success"
+                              size="small"
+                            />
+                          )}
+                        </Stack>
+                      )}
+
+                    {lastResult.crisis_triggered && (
+                      <Chip
+                        icon={<CrisisIcon />}
+                        label="Вызвал кризис!"
+                        color="warning"
+                        size="small"
+                        sx={{ mt: 1 }}
+                      />
+                    )}
+                  </CardContent>
+                </LatestResultCard>
+              )}
+
+              {/* Остальные результаты */}
+              {detailedHistory
+                .filter((entry) => entry.type === "action")
+                .slice(-4, -1) // Берем предыдущие 3 результата (исключая последний)
                 .reverse()
                 .map((logEntry, index) => (
-                  <Fade in key={index} timeout={500 + index * 200}>
+                  <Fade
+                    in
+                    key={`${logEntry.round}-${logEntry.team}-${index}`}
+                    timeout={500 + index * 200}
+                  >
                     <ResultCard success={logEntry.success}>
                       <CardContent sx={{ py: 2 }}>
                         <Box display="flex" alignItems="center" gap={1} mb={1}>
@@ -281,8 +423,7 @@ export default function ActionProcessingView() {
                             <FailIcon color="error" />
                           )}
                           <Typography variant="subtitle2" fontWeight="bold">
-                            {logEntry.action_name ||
-                              getActionName(logEntry.action_type)}
+                            {logEntry.action_name || logEntry.action_id}
                           </Typography>
                         </Box>
 
@@ -292,37 +433,40 @@ export default function ActionProcessingView() {
                           mb={1}
                         >
                           Участники:{" "}
-                          {logEntry.participants?.join(", ") || "Неизвестно"}
+                          {logEntry.participants
+                            ?.map(getPlayerName)
+                            .join(", ") || "Неизвестно"}
                         </Typography>
 
                         <Typography variant="body2" color="text.secondary">
-                          Бросок: {logEntry.roll || "?"} + {logEntry.bonus || 0}{" "}
-                          = {(logEntry.roll || 0) + (logEntry.bonus || 0)}
+                          Бросок: {logEntry.roll} + {logEntry.combined_stats} ={" "}
+                          {logEntry.roll + logEntry.combined_stats}
                         </Typography>
 
-                        {logEntry.effects && (
-                          <Stack
-                            direction="row"
-                            spacing={1}
-                            mt={1}
-                            flexWrap="wrap"
-                          >
-                            {logEntry.effects.bunker_damage && (
-                              <Chip
-                                label={`-${logEntry.effects.bunker_damage} HP`}
-                                color="error"
-                                size="small"
-                              />
-                            )}
-                            {logEntry.effects.bunker_heal && (
-                              <Chip
-                                label={`+${logEntry.effects.bunker_heal} HP`}
-                                color="success"
-                                size="small"
-                              />
-                            )}
-                          </Stack>
-                        )}
+                        {logEntry.effects &&
+                          Object.keys(logEntry.effects).length > 0 && (
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              mt={1}
+                              flexWrap="wrap"
+                            >
+                              {logEntry.effects.bunker_damage && (
+                                <Chip
+                                  label={`-${logEntry.effects.bunker_damage} HP`}
+                                  color="error"
+                                  size="small"
+                                />
+                              )}
+                              {logEntry.effects.bunker_heal && (
+                                <Chip
+                                  label={`+${logEntry.effects.bunker_heal} HP`}
+                                  color="success"
+                                  size="small"
+                                />
+                              )}
+                            </Stack>
+                          )}
 
                         {logEntry.crisis_triggered && (
                           <Chip
@@ -336,7 +480,10 @@ export default function ActionProcessingView() {
                       </CardContent>
                     </ResultCard>
                   </Fade>
-                )) || (
+                ))}
+
+              {detailedHistory.filter((entry) => entry.type === "action")
+                .length === 0 && (
                 <Typography variant="body2" color="text.secondary">
                   Результатов пока нет...
                 </Typography>
@@ -352,6 +499,15 @@ export default function ActionProcessingView() {
           Ожидание обработки действий хостом...
         </Alert>
       )}
+
+      {/* Snackbar для уведомлений */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        message={snackbar.message}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
     </ProcessingContainer>
   );
 }
